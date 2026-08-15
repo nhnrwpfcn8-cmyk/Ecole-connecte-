@@ -1,7 +1,14 @@
-# École Connectée V2
+# École Connectée — Application V1
 
-Prototype React/Vite avec connexion simulée Parent/École, tableaux de bord, notifications et simulation arrivée/départ.
+Application React/Vite connectée à Supabase.
 
-Installation: `npm install` puis `npm run dev`.
+## Variables d'environnement
+Créer `.env.local` avec :
+VITE_SUPABASE_URL=https://votre-projet.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
-Cette V2 utilise des données fictives : aucun mot de passe réel n'est stocké.
+Ne jamais utiliser une clé `service_role` ou une clé secrète dans le frontend.
+
+## Installation
+npm install
+npm run dev

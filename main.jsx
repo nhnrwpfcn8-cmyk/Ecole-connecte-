@@ -1,30 +1,87 @@
-import React,{useState} from "react";
-import{createRoot}from"react-dom/client";
-import"./styles.css";
-const child={name:"Moussa Gomis",className:"6ème A",school:"École Exemple Dakar"};
-const history=[["Lundi","Présent","07:50"],["Mardi","Présent","07:52"],["Mercredi","Absent","—"],["Jeudi","Présent","07:48"],["Vendredi","Présent","07:48"]];
-function App(){
- const[screen,setScreen]=useState("login"),[role,setRole]=useState(null),[email,setEmail]=useState(""),[error,setError]=useState("");
- const[student,setStudent]=useState({...child,status:"absent",arrival:null,departure:null}),[notes,setNotes]=useState([]);
- const now=()=>new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
- const login=r=>{if(!email.includes("@"))return setError("Entrez une adresse e-mail valide pour la démo.");setError("");setRole(r);setScreen(r)};
- const arrival=()=>{let t=now();setStudent(s=>({...s,status:"present",arrival:t,departure:null}));setNotes(n=>[{id:Date.now(),title:"Arrivée confirmée",text:`${child.name} est bien arrivé à l'école à ${t}.`},...n])};
- const departure=()=>{let t=now();setStudent(s=>({...s,status:"departed",departure:t}));setNotes(n=>[{id:Date.now(),title:"Départ de l'école",text:`${child.name} vient de quitter l'établissement à ${t}.`},...n])};
- const logout=()=>{setRole(null);setScreen("login");setEmail("")};
- return <div className="app"><header><button className="brand" onClick={()=>role&&setScreen(role)}><b className="logo">EC</b><span><strong>École Connectée</strong><small>Connecter l’école, rassurer les parents</small></span></button>{role&&<nav><button className={screen==="parent"?"on":""} onClick={()=>setScreen("parent")}>Parent</button><button className={screen==="school"?"on":""} onClick={()=>setScreen("school")}>École</button><button onClick={()=>setScreen("notifications")}>🔔 {notes.length}</button><button onClick={logout}>Déconnexion</button></nav>}</header>
- {screen==="login"&&<Login email={email} setEmail={setEmail} error={error} login={login}/>}
- {screen==="parent"&&<Parent student={student} notes={notes} go={setScreen}/>}
- {screen==="school"&&<School student={student} go={setScreen}/>}
- {screen==="notifications"&&<Notifications notes={notes} go={setScreen}/>}
- {screen==="demo"&&<Demo student={student} arrival={arrival} departure={departure} reset={()=>{setStudent({...child,status:"absent",arrival:null,departure:null});setNotes([])}}/>}
- {role&&<button className="float" onClick={()=>setScreen("demo")}>▶ Simulation</button>}
- <footer>© 2026 École Connectée · Prototype V2 · Dakar, Sénégal</footer></div>
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { supabase } from "./src/lib/supabase";
+import "./styles.css";
+
+function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => setSession(nextSession)
+    );
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function signIn() {
+    setMessage("");
+    if (!email.trim()) {
+      setMessage("Veuillez saisir votre adresse e-mail.");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) setMessage(error.message);
+    else setMessage("Un lien de connexion a été envoyé à votre e-mail.");
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
+
+  if (loading) return <div className="center">Chargement d'École Connectée…</div>;
+
+  if (!session) {
+    return (
+      <main className="page">
+        <section className="card login">
+          <div className="logo">EC</div>
+          <p className="eyebrow">ÉCOLE CONNECTÉE</p>
+          <h1>La sécurité et le suivi des élèves au cœur de l’école.</h1>
+          <p className="intro">Connectez-vous pour accéder à votre espace.</p>
+          <label>Adresse e-mail</label>
+          <input type="email" placeholder="exemple@email.com" value={email}
+            onChange={(e) => setEmail(e.target.value)} />
+          <button onClick={signIn}>Recevoir mon lien de connexion</button>
+          {message && <p className="message">{message}</p>}
+          <p className="small">Connexion sécurisée par Supabase.</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="page">
+      <section className="card dashboard">
+        <div className="top">
+          <div>
+            <p className="eyebrow">ÉCOLE CONNECTÉE</p>
+            <h1>Bienvenue 👋</h1>
+            <p>{session.user.email}</p>
+          </div>
+          <button className="secondary" onClick={signOut}>Déconnexion</button>
+        </div>
+        <div className="grid">
+          <div className="stat"><strong>0</strong><span>Enfants associés</span></div>
+          <div className="stat"><strong>0</strong><span>Présences aujourd'hui</span></div>
+          <div className="stat"><strong>0</strong><span>Notifications</span></div>
+        </div>
+        <div className="notice">
+          <h2>Votre espace est prêt</h2>
+          <p>La connexion réelle à Supabase fonctionne. La prochaine étape sera d'afficher les élèves, les présences et les notifications liés à votre compte.</p>
+        </div>
+      </section>
+    </main>
+  );
 }
-function Login({email,setEmail,error,login}){return <main className="login"><section className="loginCard"><b className="loginLogo">EC</b><label className="eyebrow">BIENVENUE SUR ÉCOLE CONNECTÉE</label><h1>Une école plus sûre,<br/><span>des parents rassurés.</span></h1><p>Connectez-vous à votre espace pour suivre les entrées, sorties et présences.</p><label>E-mail de démonstration</label><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="parent@ecoleconnectee.sn"/>{error&&<div className="error">{error}</div>}<div className="roles"><button onClick={()=>login("parent")}><b>👨‍👩‍👧 Espace Parent</b><small>Suivre mon enfant</small></button><button onClick={()=>login("school")}><b>🏫 Espace École</b><small>Administrer l’établissement</small></button></div><div className="hint">💡 Démo : utilisez n’importe quelle adresse contenant <b>@</b>.</div></section></main>}
-function Parent({student,notes,go}){return <main className="dash"><Head title="Bonjour, Roger 👋" label="ESPACE PARENT" sub="Voici la situation de votre enfant aujourd’hui." action={()=>go("notifications")} actionText={`🔔 Notifications (${notes.length})`}/><div className="card student"><Avatar/><div><h3>{student.name}</h3><p>{student.className} · {student.school}</p></div><Status s={student.status}/></div><div className="g3"><Info t="Arrivée" v={student.arrival||"—"} i="↘"/><Info t="Présence" v={student.status==="present"?"Présent":student.status==="departed"?"Sorti":"En attente"} i="✓"/><Info t="Départ" v={student.departure||"—"} i="↗"/></div><div className="card"><div className="ct"><h3>Historique de présence</h3><span>Cette semaine</span></div>{history.map(x=><div className="row" key={x[0]}><b>{x[0]}</b><span className={x[1]==="Absent"?"red":"green"}>{x[1]}</span><small>{x[0]==="Vendredi"?(student.arrival||x[2]):x[2]}</small></div>)}</div></main>}
-function School({student,go}){return <main className="dash"><Head title="Tableau de bord" label="ESPACE ÉCOLE" sub="Suivez les présences de l’établissement." action={()=>go("demo")} actionText="▶ Lancer la simulation"/><div className="g4"><Metric t="Élèves" v="856"/><Metric t="Présents" v={student.status==="present"?"792":"791"}/><Metric t="Absents" v={student.status==="absent"?"43":"42"}/><Metric t="Retards" v="23"/></div><div className="card"><div className="ct"><h3>Suivi en direct</h3><span>Actualisé maintenant</span></div><div className="table"><div className="tr th"><b>Élève</b><b>Classe</b><b>Arrivée</b><b>Départ</b><b>Statut</b></div>{[[student.name,student.className,student.arrival||"—",student.departure||"—",student.status],["Fatou Ndiaye","6ème A","07:52","—","present"],["Ibrahima Fall","6ème B","—","—","absent"]].map((r,i)=><div className="tr" key={i}><span><b>{r[0]}</b></span><span>{r[1]}</span><span>{r[2]}</span><span>{r[3]}</span><Status s={r[4]}/></div>)}</div></div></main>}
-function Notifications({notes,go}){return <main className="dash narrow"><Head title="Notifications" label="ESPACE PARENT" action={()=>go("parent")} actionText="← Retour"/>{notes.length?notes.map(n=><div className="card note" key={n.id}>🔔<div><b>{n.title}</b><p>{n.text}</p></div></div>):<div className="card empty">🔔<h3>Aucune notification</h3><p>Lancez une simulation d’arrivée pour tester.</p></div>}</main>}
-function Demo({student,arrival,departure,reset}){return <main className="dash narrow"><Head title="Arrivée & sortie" label="DÉMONSTRATION" action={reset} actionText="Réinitialiser"/><div className="card scenario"><div className="student"><Avatar/><div><h3>{student.name}</h3><p>{student.className} · {student.school}</p></div><Status s={student.status}/></div><div className="timeline"><Step d={!!student.arrival} t="Entrée enregistrée" v={student.arrival||"En attente"}/><Step d={!!student.arrival} t="Notification parent" v={student.arrival?"Envoyée":"En attente"}/><Step d={!!student.departure} t="Sortie enregistrée" v={student.departure||"En attente"}/><Step d={!!student.departure} t="Notification de sortie" v={student.departure?"Envoyée":"En attente"}/></div><div className="actions"><button className="primary" disabled={student.status!=="absent"} onClick={arrival}>✓ Simuler l’arrivée</button><button className="secondary" disabled={student.status!=="present"} onClick={departure}>↗ Simuler le départ</button></div></div></main>}
-function Head({label,title,sub,action,actionText}){return <div className="head"><div><span className="eyebrow">{label}</span><h2>{title}</h2>{sub&&<p>{sub}</p>}</div><button className="secondary" onClick={action}>{actionText}</button></div>}
-function Avatar(){return <div className="avatar">MG</div>}function Status({s}){let m={present:["present","Présent"],absent:["absent","Absent"],departed:["departed","Sorti"]}[s]||["absent","Absent"];return <span className={"status "+m[0]}><i/> {m[1]}</span>}function Info({t,v,i}){return <div className="card info"><span>{i}</span><small>{t}</small><strong>{v}</strong></div>}function Metric({t,v}){return <div className="card metric"><small>{t}</small><strong>{v}</strong><span>Aujourd’hui</span></div>}function Step({d,t,v}){return <div className="step"><i className={d?"done":""}>{d?"✓":""}</i><div><b>{t}</b><small>{v}</small></div></div>}
-createRoot(document.getElementById("root")).render(<App/>);
+
+createRoot(document.getElementById("root")).render(<App />);

@@ -12,3 +12,4 @@ Ne jamais utiliser une clé `service_role` ou une clé secrète dans le frontend
 ## Installation
 npm install
 npm run dev
+V2 - Application École Connectée

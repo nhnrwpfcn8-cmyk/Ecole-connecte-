@@ -10,39 +10,71 @@ function App() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    async function loadSession() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
+        if (error) {
+          console.error("Erreur Supabase:", error);
+          setMessage("Erreur Supabase : " + error.message);
+        }
+
+        setSession(data?.session || null);
+      } catch (error) {
+        console.error("Erreur réseau Supabase:", error);
+        setMessage("Connexion à Supabase impossible.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         setSession(nextSession);
       }
     );
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function signIn() {
     setMessage("");
 
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
       setMessage("Veuillez saisir votre adresse e-mail.");
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin
-      }
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
 
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Un lien de connexion a été envoyé à votre e-mail.");
+      if (error) {
+        console.error("Erreur connexion:", error);
+        setMessage("Erreur Supabase : " + error.message);
+        return;
+      }
+
+      setMessage(
+        "Un lien de connexion a été envoyé à votre e-mail."
+      );
+    } catch (error) {
+      console.error("Erreur réseau:", error);
+      setMessage(
+        "Load failed : impossible de contacter Supabase."
+      );
     }
   }
 

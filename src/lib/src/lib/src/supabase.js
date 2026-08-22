@@ -1,15 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const supabasePublishableKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+const supabaseUrl = "https://gdiauunabyzjymaswadi.supabase.co";
 
-if (!supabaseUrl) {
-  throw new Error("VITE_SUPABASE_URL est manquante");
-}
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!supabasePublishableKey) {
-  throw new Error("VITE_SUPABASE_PUBLISHABLE_KEY est manquante");
+  throw new Error("VITE_SUPABASE_PUBLISHABLE_KEY est manquante.");
 }
 
 export const supabase = createClient(

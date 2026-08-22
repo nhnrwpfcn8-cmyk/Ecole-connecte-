@@ -57,7 +57,7 @@ function App() {
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo:"https://ec7.vercel.app"
         },
       });
 

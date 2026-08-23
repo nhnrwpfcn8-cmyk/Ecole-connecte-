@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
-import TeacherDashboard from "./TeacherDashboard.";
+import TeacherDashboard from "./TeacherDashboard.jsx";
 import "./styles.css";
 
 function App() {

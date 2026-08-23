@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
+import TeacherDashboard from "./TeacherDashboard";
 import "./styles.css";
 
 function App() {
@@ -89,7 +90,14 @@ function App() {
       </div>
     );
   }
-
+if (session) {
+  return (
+    <TeacherDashboard
+      session={session}
+      onLogout={signOut}
+    />
+  );
+}
   if (!session) {
     return (
       <main className="page">

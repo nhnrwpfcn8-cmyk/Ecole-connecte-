@@ -14,25 +14,8 @@ export default function AdminDashboard({ session, onLogout }) {
   const [teachers, setTeachers] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [message, setMessage] = useState("");
-
-  const [showTeacherForm, setShowTeacherForm] =
-    useState(false);
-
-  const [showTeachers, setShowTeachers] =
-    useState(false);
-
-  const [teacherName, setTeacherName] =
-    useState("");
-
-  const [teacherEmail, setTeacherEmail] =
-    useState("");
-
-  const [teacherPhone, setTeacherPhone] =
-    useState("");
-
-  const [creatingTeacher, setCreatingTeacher] =
-    useState(false);
 
   useEffect(() => {
     loadData();
@@ -43,23 +26,34 @@ export default function AdminDashboard({ session, onLogout }) {
     setMessage("");
 
     try {
-      // Charger les professeurs directement
-      const {
-        data: teachersData,
-        error: teachersError,
-      } = await supabase
+      /*
+       * PROFESSEURS
+       */
+
+      const teachersResult = await supabase
         .from("profiles")
         .select("id, full_name, phone, role")
         .eq("role", "teacher")
         .order("full_name");
 
-      if (teachersError) {
-        throw teachersError;
+      if (teachersResult.error) {
+        console.error(
+          "Erreur professeurs:",
+          teachersResult.error
+        );
+
+        throw teachersResult.error;
       }
 
-      setTeachers(teachersData || []);
+      const teacherList =
+        teachersResult.data || [];
 
-      // Charger les autres statistiques
+      setTeachers(teacherList);
+
+      /*
+       * AUTRES STATISTIQUES
+       */
+
       const [
         studentsResult,
         parentsResult,
@@ -75,9 +69,10 @@ export default function AdminDashboard({ session, onLogout }) {
           }),
 
         supabase
-  .from("profiles")
-  .select("id", { count: "exact" })
-  .eq("role", "teacher"),
+          .from("profiles")
+          .select("id", {
+            count: "exact",
+            head: true,
           })
           .eq("role", "parent"),
 
@@ -116,7 +111,7 @@ export default function AdminDashboard({ session, onLogout }) {
       }
 
       setStats({
-        teachers: teachersData?.length || 0,
+        teachers: teacherList.length,
         students: studentsResult.count || 0,
         parents: parentsResult.count || 0,
         schools: schoolsResult.count || 0,
@@ -131,88 +126,58 @@ export default function AdminDashboard({ session, onLogout }) {
       );
 
       setMessage(
-        "Impossible de charger les données : " +
-        error.message
+        "Erreur : " +
+        (error.message ||
+          "Impossible de charger les données.")
       );
+
     } finally {
       setLoading(false);
     }
   }
 
-  async function createTeacher() {
+  async function refreshTeachers() {
+    setLoadingTeachers(true);
     setMessage("");
-
-    const cleanName = teacherName.trim();
-    const cleanEmail = teacherEmail.trim();
-    const cleanPhone = teacherPhone.trim();
-
-    if (!cleanName) {
-      setMessage(
-        "Veuillez saisir le nom complet du professeur."
-      );
-      return;
-    }
-
-    if (!cleanEmail) {
-      setMessage(
-        "Veuillez saisir l'adresse e-mail du professeur."
-      );
-      return;
-    }
-
-    setCreatingTeacher(true);
 
     try {
       const {
         data,
         error,
-      } = await supabase.functions.invoke(
-        "create-user",
-        {
-          body: {
-            full_name: cleanName,
-            email: cleanEmail,
-            phone: cleanPhone,
-            role: "teacher",
-          },
-        }
-      );
+      } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, phone, role"
+        )
+        .eq("role", "teacher")
+        .order("full_name");
 
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
 
-      if (!data?.success) {
-        throw new Error(
-          data?.error ||
-          "Impossible de créer le professeur."
-        );
-      }
+      const list = data || [];
 
-      setMessage(
-        "✅ Professeur créé avec succès."
-      );
+      setTeachers(list);
 
-      setTeacherName("");
-      setTeacherEmail("");
-      setTeacherPhone("");
-
-      setShowTeacherForm(false);
-
-      // Recharger immédiatement les données
-      await loadData();
+      setStats((current) => ({
+        ...current,
+        teachers: list.length,
+      }));
 
     } catch (error) {
       console.error(
-        "Erreur création professeur:",
+        "Erreur actualisation professeurs:",
         error
       );
 
       setMessage(
-        "Erreur : " + error.message
+        "Impossible de charger les professeurs : " +
+        error.message
       );
+
     } finally {
-      setCreatingTeacher(false);
+      setLoadingTeachers(false);
     }
   }
 
@@ -226,9 +191,10 @@ export default function AdminDashboard({ session, onLogout }) {
 
   return (
     <main className="page">
+
       <section className="card dashboard">
 
-        {/* HEADER */}
+        {/* EN-TÊTE */}
 
         <div className="top">
 
@@ -243,7 +209,7 @@ export default function AdminDashboard({ session, onLogout }) {
             </h1>
 
             <p>
-              {session.user.email}
+              {session?.user?.email}
             </p>
 
           </div>
@@ -270,7 +236,6 @@ export default function AdminDashboard({ session, onLogout }) {
         <div className="grid">
 
           <div className="stat">
-
             <strong>
               {stats.teachers}
             </strong>
@@ -278,11 +243,9 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Professeurs
             </span>
-
           </div>
 
           <div className="stat">
-
             <strong>
               {stats.students}
             </strong>
@@ -290,11 +253,9 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Élèves
             </span>
-
           </div>
 
           <div className="stat">
-
             <strong>
               {stats.parents}
             </strong>
@@ -302,11 +263,9 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Parents
             </span>
-
           </div>
 
           <div className="stat">
-
             <strong>
               {stats.schools}
             </strong>
@@ -314,11 +273,9 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Écoles
             </span>
-
           </div>
 
           <div className="stat">
-
             <strong>
               {stats.classes}
             </strong>
@@ -326,11 +283,9 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Classes
             </span>
-
           </div>
 
           <div className="stat">
-
             <strong>
               {stats.subjects}
             </strong>
@@ -338,7 +293,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <span>
               Matières
             </span>
-
           </div>
 
         </div>
@@ -352,9 +306,10 @@ export default function AdminDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Depuis cet espace, l'administrateur
-            peut gérer les différents utilisateurs
-            et les ressources de l'école.
+            Depuis cet espace, vous pouvez
+            administrer les professeurs,
+            élèves, parents, écoles, classes
+            et matières.
           </p>
 
         </div>
@@ -363,138 +318,65 @@ export default function AdminDashboard({ session, onLogout }) {
 
         <div className="notice">
 
-          <h2>
-            👨‍🏫 Gestion des professeurs
-          </h2>
+          <div className="top">
 
-          <p>
-            {teachers.length} professeur(s)
-            enregistré(s).
-          </p>
+            <div>
 
-          <button
-            onClick={() =>
-              setShowTeacherForm(
-                !showTeacherForm
-              )
-            }
-          >
-            {showTeacherForm
-              ? "Fermer"
-              : "+ Ajouter un professeur"}
-          </button>
+              <h2>
+                👨‍🏫 Professeurs
+              </h2>
 
-          <button
-            className="secondary"
-            onClick={() =>
-              setShowTeachers(
-                !showTeachers
-              )
-            }
-          >
-            {showTeachers
-              ? "Masquer les professeurs"
-              : "Voir les professeurs"}
-          </button>
+              <p>
+                {teachers.length} professeur
+                {teachers.length !== 1
+                  ? "s"
+                  : ""} enregistré
+                {teachers.length !== 1
+                  ? "s"
+                  : ""}.
+              </p>
 
-        </div>
-
-        {/* FORMULAIRE */}
-
-        {showTeacherForm && (
-
-          <div className="card">
-
-            <h2>
-              Nouveau professeur
-            </h2>
-
-            <p>
-              Renseignez les informations
-              du professeur.
-            </p>
-
-            <label>
-              Nom complet
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Mamadou Diop"
-              value={teacherName}
-              onChange={(e) =>
-                setTeacherName(
-                  e.target.value
-                )
-              }
-            />
-
-            <label>
-              Adresse e-mail
-            </label>
-
-            <input
-              type="email"
-              placeholder="professeur@email.com"
-              value={teacherEmail}
-              onChange={(e) =>
-                setTeacherEmail(
-                  e.target.value
-                )
-              }
-            />
-
-            <label>
-              Téléphone
-            </label>
-
-            <input
-              type="tel"
-              placeholder="Ex : 77 000 00 00"
-              value={teacherPhone}
-              onChange={(e) =>
-                setTeacherPhone(
-                  e.target.value
-                )
-              }
-            />
+            </div>
 
             <button
-              onClick={createTeacher}
-              disabled={creatingTeacher}
+              onClick={refreshTeachers}
+              disabled={loadingTeachers}
             >
-              {creatingTeacher
-                ? "Création en cours..."
-                : "👨‍🏫 Créer le compte professeur"}
+              {loadingTeachers
+                ? "Actualisation..."
+                : "↻ Actualiser"}
             </button>
 
           </div>
 
-        )}
+          {teachers.length === 0 ? (
 
-        {/* LISTE PROFESSEURS */}
+            <div className="notice">
 
-        {showTeachers && (
-
-          <div className="notice">
-
-            <h2>
-              Liste des professeurs
-            </h2>
-
-            {teachers.length === 0 ? (
+              <h3>
+                Aucun professeur affiché
+              </h3>
 
               <p>
-                Aucun professeur trouvé.
+                Aucun professeur n'est
+                actuellement visible depuis
+                l'application.
               </p>
 
-            ) : (
+            </div>
 
-              teachers.map((teacher) => (
+          ) : (
+
+            <div>
+
+              {teachers.map((teacher) => (
 
                 <div
                   key={teacher.id}
                   className="stat"
+                  style={{
+                    marginBottom: "12px",
+                  }}
                 >
 
                   <strong>
@@ -503,28 +385,45 @@ export default function AdminDashboard({ session, onLogout }) {
                   </strong>
 
                   <span>
+                    📞{" "}
                     {teacher.phone ||
                       "Téléphone non renseigné"}
                   </span>
 
+                  <span>
+                    Rôle : {teacher.role}
+                  </span>
+
                 </div>
 
-              ))
+              ))}
 
-            )}
+            </div>
 
-          </div>
+          )}
 
-        )}
+        </div>
 
-        {/* AUTRES MODULES */}
+        {/* BOUTONS DE GESTION */}
 
         <div className="grid">
 
           <button
             onClick={() =>
               alert(
-                "Gestion des élèves prochainement disponible."
+                "La gestion des professeurs sera ajoutée à cette section."
+              )
+            }
+          >
+            👨‍🏫
+            <br />
+            Gérer les professeurs
+          </button>
+
+          <button
+            onClick={() =>
+              alert(
+                "La gestion des élèves sera ajoutée prochainement."
               )
             }
           >
@@ -536,7 +435,7 @@ export default function AdminDashboard({ session, onLogout }) {
           <button
             onClick={() =>
               alert(
-                "Gestion des parents prochainement disponible."
+                "La gestion des parents sera ajoutée prochainement."
               )
             }
           >
@@ -548,7 +447,7 @@ export default function AdminDashboard({ session, onLogout }) {
           <button
             onClick={() =>
               alert(
-                "Gestion des écoles prochainement disponible."
+                "La gestion des écoles sera ajoutée prochainement."
               )
             }
           >
@@ -560,7 +459,7 @@ export default function AdminDashboard({ session, onLogout }) {
           <button
             onClick={() =>
               alert(
-                "Gestion des classes prochainement disponible."
+                "La gestion des classes sera ajoutée prochainement."
               )
             }
           >
@@ -572,7 +471,7 @@ export default function AdminDashboard({ session, onLogout }) {
           <button
             onClick={() =>
               alert(
-                "Gestion des matières prochainement disponible."
+                "La gestion des matières sera ajoutée prochainement."
               )
             }
           >
@@ -584,6 +483,7 @@ export default function AdminDashboard({ session, onLogout }) {
         </div>
 
       </section>
+
     </main>
   );
 }

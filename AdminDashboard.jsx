@@ -75,10 +75,9 @@ export default function AdminDashboard({ session, onLogout }) {
           }),
 
         supabase
-          .from("profiles")
-          .select("id", {
-            count: "exact",
-            head: true,
+  .from("profiles")
+  .select("id", { count: "exact" })
+  .eq("role", "teacher"),
           })
           .eq("role", "parent"),
 

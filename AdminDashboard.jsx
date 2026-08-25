@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./src/lib/supabase";
 
-export default function AdminDashboard({ session, onLogout }) {
+export default function AdminDashboard({
+  session,
+  onLogout,
+}) {
   const [stats, setStats] = useState({
     teachers: 0,
     students: 0,
@@ -14,7 +17,24 @@ export default function AdminDashboard({ session, onLogout }) {
   const [teachers, setTeachers] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [creatingTeacher, setCreatingTeacher] =
+    useState(false);
+
+  const [showTeacherForm, setShowTeacherForm] =
+    useState(false);
+
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [teacherName, setTeacherName] =
+    useState("");
+
+  const [teacherEmail, setTeacherEmail] =
+    useState("");
+
+  const [teacherPhone, setTeacherPhone] =
+    useState("");
 
   useEffect(() => {
     loadData();
@@ -22,74 +42,107 @@ export default function AdminDashboard({ session, onLogout }) {
 
   async function loadData() {
     setLoading(true);
-    setMessage("");
+    setErrorMessage("");
 
     try {
-      const teachersResponse = await supabase
-        .from("profiles")
-        .select("id, full_name, phone, role")
-        .eq("role", "teacher")
-        .order("full_name");
+      /*
+       * PROFESSEURS
+       */
+
+      const teachersResponse =
+        await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, phone, role"
+          )
+          .eq("role", "teacher")
+          .order("full_name");
 
       if (teachersResponse.error) {
         throw teachersResponse.error;
       }
 
-      const teacherList = teachersResponse.data || [];
+      const teacherList =
+        teachersResponse.data || [];
 
       setTeachers(teacherList);
 
-      const studentsResponse = await supabase
-        .from("students")
-        .select("id", {
-          count: "exact",
-          head: true,
-        });
+      /*
+       * ÉLÈVES
+       */
 
-      const parentsResponse = await supabase
-        .from("profiles")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("role", "parent");
-
-      const schoolsResponse = await supabase
-        .from("schools")
-        .select("id", {
-          count: "exact",
-          head: true,
-        });
-
-      const classesResponse = await supabase
-        .from("classes")
-        .select("id", {
-          count: "exact",
-          head: true,
-        });
-
-      const subjectsResponse = await supabase
-        .from("subjects")
-        .select("id", {
-          count: "exact",
-          head: true,
-        });
+      const studentsResponse =
+        await supabase
+          .from("students")
+          .select("id", {
+            count: "exact",
+            head: true,
+          });
 
       if (studentsResponse.error) {
         throw studentsResponse.error;
       }
 
+      /*
+       * PARENTS
+       */
+
+      const parentsResponse =
+        await supabase
+          .from("profiles")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("role", "parent");
+
       if (parentsResponse.error) {
         throw parentsResponse.error;
       }
+
+      /*
+       * ÉCOLES
+       */
+
+      const schoolsResponse =
+        await supabase
+          .from("schools")
+          .select("id", {
+            count: "exact",
+            head: true,
+          });
 
       if (schoolsResponse.error) {
         throw schoolsResponse.error;
       }
 
+      /*
+       * CLASSES
+       */
+
+      const classesResponse =
+        await supabase
+          .from("classes")
+          .select("id", {
+            count: "exact",
+            head: true,
+          });
+
       if (classesResponse.error) {
         throw classesResponse.error;
       }
+
+      /*
+       * MATIÈRES
+       */
+
+      const subjectsResponse =
+        await supabase
+          .from("subjects")
+          .select("id", {
+            count: "exact",
+            head: true,
+          });
 
       if (subjectsResponse.error) {
         throw subjectsResponse.error;
@@ -106,28 +159,149 @@ export default function AdminDashboard({ session, onLogout }) {
 
     } catch (error) {
       console.error(
-        "Erreur administration :",
+        "Erreur chargement administration:",
         error
       );
 
-      setMessage(
-        "Erreur : " +
-          (error.message ||
-            "Impossible de charger les données.")
+      setErrorMessage(
+        error.message ||
+          "Impossible de charger les données."
       );
-
     } finally {
       setLoading(false);
     }
   }
 
-  async function refreshTeachers() {
+  async function createTeacher() {
     setMessage("");
+    setErrorMessage("");
+
+    const cleanName =
+      teacherName.trim();
+
+    const cleanEmail =
+      teacherEmail.trim().toLowerCase();
+
+    const cleanPhone =
+      teacherPhone.trim();
+
+    if (!cleanName) {
+      setErrorMessage(
+        "Veuillez saisir le nom complet du professeur."
+      );
+      return;
+    }
+
+    if (
+      !cleanEmail ||
+      !cleanEmail.includes("@")
+    ) {
+      setErrorMessage(
+        "Veuillez saisir une adresse e-mail valide."
+      );
+      return;
+    }
+
+    setCreatingTeacher(true);
 
     try {
-      const { data, error } = await supabase
+      /*
+       * Appel de l'Edge Function
+       */
+
+      const { data, error } =
+        await supabase.functions.invoke(
+          "create-user",
+          {
+            body: {
+              full_name: cleanName,
+              email: cleanEmail,
+              phone: cleanPhone,
+              role: "teacher",
+            },
+          }
+        );
+
+      if (error) {
+        console.error(
+          "Erreur Edge Function:",
+          error
+        );
+
+        throw new Error(
+          error.message ||
+            "Impossible de contacter le serveur."
+        );
+      }
+
+      /*
+       * Vérifier la réponse de la fonction
+       */
+
+      if (!data?.success) {
+        throw new Error(
+          data?.error ||
+            "La création du professeur a échoué."
+        );
+      }
+
+      /*
+       * Succès
+       */
+
+      setMessage(
+        "Professeur créé avec succès ! Un lien de connexion pourra lui être envoyé."
+      );
+
+      /*
+       * Réinitialiser le formulaire
+       */
+
+      setTeacherName("");
+      setTeacherEmail("");
+      setTeacherPhone("");
+
+      /*
+       * Fermer le formulaire
+       */
+
+      setShowTeacherForm(false);
+
+      /*
+       * Recharger les données
+       */
+
+      await loadData();
+
+    } catch (error) {
+      console.error(
+        "Erreur création professeur:",
+        error
+      );
+
+      setErrorMessage(
+        error.message ||
+          "Impossible de créer le professeur."
+      );
+
+    } finally {
+      setCreatingTeacher(false);
+    }
+  }
+
+  async function refreshTeachers() {
+    setMessage("");
+    setErrorMessage("");
+
+    try {
+      const {
+        data,
+        error,
+      } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, role")
+        .select(
+          "id, full_name, phone, role"
+        )
         .eq("role", "teacher")
         .order("full_name");
 
@@ -146,13 +320,13 @@ export default function AdminDashboard({ session, onLogout }) {
 
     } catch (error) {
       console.error(
-        "Erreur professeurs :",
+        "Erreur actualisation professeurs:",
         error
       );
 
-      setMessage(
-        "Impossible de charger les professeurs : " +
-          error.message
+      setErrorMessage(
+        error.message ||
+          "Impossible d'actualiser les professeurs."
       );
     }
   }
@@ -170,9 +344,14 @@ export default function AdminDashboard({ session, onLogout }) {
 
       <section className="card dashboard">
 
+        {/* =========================
+            EN-TÊTE
+        ========================== */}
+
         <div className="top">
 
           <div>
+
             <p className="eyebrow">
               ÉCOLE CONNECTÉE
             </p>
@@ -184,6 +363,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <p>
               {session?.user?.email}
             </p>
+
           </div>
 
           <button
@@ -195,11 +375,25 @@ export default function AdminDashboard({ session, onLogout }) {
 
         </div>
 
+        {/* =========================
+            MESSAGES
+        ========================== */}
+
         {message && (
           <p className="message">
             {message}
           </p>
         )}
+
+        {errorMessage && (
+          <p className="message">
+            {errorMessage}
+          </p>
+        )}
+
+        {/* =========================
+            STATISTIQUES
+        ========================== */}
 
         <div className="grid">
 
@@ -207,6 +401,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.teachers}
             </strong>
+
             <span>
               Professeurs
             </span>
@@ -216,6 +411,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.students}
             </strong>
+
             <span>
               Élèves
             </span>
@@ -225,6 +421,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.parents}
             </strong>
+
             <span>
               Parents
             </span>
@@ -234,6 +431,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.schools}
             </strong>
+
             <span>
               Écoles
             </span>
@@ -243,6 +441,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.classes}
             </strong>
+
             <span>
               Classes
             </span>
@@ -252,12 +451,17 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.subjects}
             </strong>
+
             <span>
               Matières
             </span>
           </div>
 
         </div>
+
+        {/* =========================
+            GESTION DE L'ÉCOLE
+        ========================== */}
 
         <div className="notice">
 
@@ -273,11 +477,16 @@ export default function AdminDashboard({ session, onLogout }) {
 
         </div>
 
+        {/* =========================
+            PROFESSEURS
+        ========================== */}
+
         <div className="notice">
 
           <div className="top">
 
             <div>
+
               <h2>
                 👨‍🏫 Professeurs
               </h2>
@@ -291,12 +500,115 @@ export default function AdminDashboard({ session, onLogout }) {
                   ? "s"
                   : ""}
               </p>
+
             </div>
+
+            <button
+              onClick={() =>
+                setShowTeacherForm(
+                  !showTeacherForm
+                )
+              }
+            >
+              {showTeacherForm
+                ? "Fermer"
+                : "+ Nouveau professeur"}
+            </button>
+
+          </div>
+
+          {/* =========================
+              FORMULAIRE PROFESSEUR
+          ========================== */}
+
+          {showTeacherForm && (
+
+            <div className="card">
+
+              <h2>
+                Nouveau professeur
+              </h2>
+
+              <p>
+                Renseignez les informations
+                du professeur.
+              </p>
+
+              <label>
+                Nom complet
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ex : Mamadou Diop"
+                value={teacherName}
+                onChange={(e) =>
+                  setTeacherName(
+                    e.target.value
+                  )
+                }
+                disabled={creatingTeacher}
+              />
+
+              <label>
+                Adresse e-mail
+              </label>
+
+              <input
+                type="email"
+                placeholder="professeur@email.com"
+                value={teacherEmail}
+                onChange={(e) =>
+                  setTeacherEmail(
+                    e.target.value
+                  )
+                }
+                disabled={creatingTeacher}
+              />
+
+              <label>
+                Téléphone
+              </label>
+
+              <input
+                type="tel"
+                placeholder="Ex : 77 000 00 00"
+                value={teacherPhone}
+                onChange={(e) =>
+                  setTeacherPhone(
+                    e.target.value
+                  )
+                }
+                disabled={creatingTeacher}
+              />
+
+              <button
+                onClick={createTeacher}
+                disabled={creatingTeacher}
+              >
+                {creatingTeacher
+                  ? "Création en cours..."
+                  : "👨‍🏫 Créer le professeur"}
+              </button>
+
+            </div>
+
+          )}
+
+          {/* =========================
+              LISTE DES PROFESSEURS
+          ========================== */}
+
+          <div
+            style={{
+              marginTop: "20px",
+            }}
+          >
 
             <button
               onClick={refreshTeachers}
             >
-              ↻ Actualiser
+              ↻ Actualiser la liste
             </button>
 
           </div>
@@ -309,7 +621,11 @@ export default function AdminDashboard({ session, onLogout }) {
 
           ) : (
 
-            <div>
+            <div
+              style={{
+                marginTop: "20px",
+              }}
+            >
 
               {teachers.map((teacher) => (
 
@@ -333,7 +649,8 @@ export default function AdminDashboard({ session, onLogout }) {
                   </span>
 
                   <span>
-                    Rôle : {teacher.role}
+                    Rôle :{" "}
+                    {teacher.role}
                   </span>
 
                 </div>
@@ -346,11 +663,15 @@ export default function AdminDashboard({ session, onLogout }) {
 
         </div>
 
+        {/* =========================
+            AUTRES MODULES
+        ========================== */}
+
         <div className="grid">
 
           <button
             onClick={() =>
-              alert("Gestion des professeurs")
+              setShowTeacherForm(true)
             }
           >
             👨‍🏫
@@ -360,7 +681,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert("Gestion des élèves")
+              alert(
+                "La gestion des élèves sera ajoutée prochainement."
+              )
             }
           >
             👨‍🎓
@@ -370,7 +693,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert("Gestion des parents")
+              alert(
+                "La gestion des parents sera ajoutée prochainement."
+              )
             }
           >
             👨‍👩‍👧
@@ -380,7 +705,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert("Gestion des écoles")
+              alert(
+                "La gestion des écoles sera ajoutée prochainement."
+              )
             }
           >
             🏫
@@ -390,7 +717,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert("Gestion des classes")
+              alert(
+                "La gestion des classes sera ajoutée prochainement."
+              )
             }
           >
             📚
@@ -400,7 +729,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert("Gestion des matières")
+              alert(
+                "La gestion des matières sera ajoutée prochainement."
+              )
             }
           >
             📖

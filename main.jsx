@@ -1,44 +1,91 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
+
 import TeacherDashboard from "./TeacherDashboard.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
+
 import "./styles.css";
 
 function App() {
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
   async function loadUserRole(currentSession) {
-    if (!currentSession) {
+    if (!currentSession?.user?.id) {
       setRole(null);
       return;
     }
 
+    const userId = currentSession.user.id;
+
+    console.log(
+      "Utilisateur connecté :",
+      userId
+    );
+
     try {
-      const { data: profile, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("profiles")
-        .select("role")
-        .eq("id", currentSession.user.id)
-        .single();
+        .select("id, role")
+        .eq("id", userId)
+        .maybeSingle();
 
       if (error) {
-        console.error("Erreur profil:", error);
+        console.error(
+          "Erreur récupération profil :",
+          error
+        );
+
         setRole(null);
+
         setMessage(
           "Impossible de récupérer votre rôle : " +
           error.message
         );
+
         return;
       }
 
-      setRole(profile?.role || null);
+      console.log(
+        "Profil récupéré :",
+        data
+      );
+
+      if (!data) {
+        console.error(
+          "Aucun profil trouvé pour :",
+          userId
+        );
+
+        setRole(null);
+
+        setMessage(
+          "Votre compte existe, mais aucun profil n'est associé à ce compte."
+        );
+
+        return;
+      }
+
+      setRole(data.role || null);
+
+      setMessage("");
+
     } catch (error) {
-      console.error("Erreur récupération rôle:", error);
+      console.error(
+        "Erreur profil :",
+        error
+      );
+
       setRole(null);
+
       setMessage(
         "Impossible de récupérer votre profil."
       );
@@ -46,50 +93,72 @@ function App() {
   }
 
   useEffect(() => {
-    async function loadSession() {
+    let mounted = true;
+
+    async function initialize() {
       try {
-        const { data, error } =
-          await supabase.auth.getSession();
+        const {
+          data,
+          error,
+        } = await supabase.auth.getSession();
 
         if (error) {
-          console.error("Erreur Supabase:", error);
-          setMessage(
-            "Erreur Supabase : " + error.message
-          );
+          throw error;
+        }
+
+        if (!mounted) {
           return;
         }
 
-        const currentSession = data?.session || null;
+        const currentSession =
+          data?.session || null;
 
         setSession(currentSession);
 
         if (currentSession) {
-          await loadUserRole(currentSession);
+          await loadUserRole(
+            currentSession
+          );
+        } else {
+          setRole(null);
         }
+
       } catch (error) {
         console.error(
-          "Erreur réseau Supabase:",
+          "Erreur initialisation :",
           error
         );
 
-        setMessage(
-          "Connexion à Supabase impossible."
-        );
+        if (mounted) {
+          setMessage(
+            "Impossible de charger votre session."
+          );
+        }
+
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    loadSession();
+    initialize();
 
     const {
-      data: { subscription },
+      data: authListener,
     } = supabase.auth.onAuthStateChange(
       async (_event, nextSession) => {
+
+        if (!mounted) {
+          return;
+        }
+
         setSession(nextSession);
 
         if (nextSession) {
-          await loadUserRole(nextSession);
+          await loadUserRole(
+            nextSession
+          );
         } else {
           setRole(null);
         }
@@ -97,39 +166,48 @@ function App() {
     );
 
     return () => {
-      subscription.unsubscribe();
+      mounted = false;
+
+      authListener.subscription.unsubscribe();
     };
+
   }, []);
 
   async function signIn() {
     setMessage("");
 
-    const cleanEmail = email.trim();
+    const cleanEmail =
+      email.trim().toLowerCase();
 
     if (!cleanEmail) {
       setMessage(
         "Veuillez saisir votre adresse e-mail."
       );
+
       return;
     }
 
     try {
-      const { error } =
-        await supabase.auth.signInWithOtp({
-          email: cleanEmail,
-          options: {
-            emailRedirectTo: window.location.origin,
-          },
-        });
+      const {
+        error,
+      } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+
+        options: {
+          emailRedirectTo:
+            window.location.origin,
+        },
+      });
 
       if (error) {
         console.error(
-          "Erreur connexion:",
+          "Erreur connexion :",
           error
         );
 
         setMessage(
-          "Erreur Supabase : " + error.message
+          "Erreur Supabase : " +
+          error.message
         );
 
         return;
@@ -138,23 +216,30 @@ function App() {
       setMessage(
         "Un lien de connexion a été envoyé à votre e-mail."
       );
+
     } catch (error) {
       console.error(
-        "Erreur réseau:",
+        "Erreur réseau :",
         error
       );
 
       setMessage(
-        "Load failed : impossible de contacter Supabase."
+        "Impossible de contacter Supabase."
       );
     }
   }
 
   async function signOut() {
     await supabase.auth.signOut();
+
     setSession(null);
     setRole(null);
+    setMessage("");
   }
+
+  /*
+   * CHARGEMENT
+   */
 
   if (loading) {
     return (
@@ -164,7 +249,15 @@ function App() {
     );
   }
 
+  /*
+   * UTILISATEUR CONNECTÉ
+   */
+
   if (session) {
+
+    /*
+     * ADMIN
+     */
 
     if (role === "admin") {
       return (
@@ -175,6 +268,10 @@ function App() {
       );
     }
 
+    /*
+     * PROFESSEUR
+     */
+
     if (role === "teacher") {
       return (
         <TeacherDashboard
@@ -184,8 +281,13 @@ function App() {
       );
     }
 
+    /*
+     * RÔLE INCONNU
+     */
+
     return (
       <main className="page">
+
         <section className="card login">
 
           <div className="logo">
@@ -202,27 +304,45 @@ function App() {
 
           <p className="intro">
             Votre compte est bien connecté,
-            mais aucun espace n'est encore configuré
-            pour votre rôle.
+            mais votre profil n'est pas encore
+            correctement configuré.
           </p>
 
-          <p className="message">
-            Rôle actuel : {role || "non défini"}
+          {message && (
+            <p className="message">
+              {message}
+            </p>
+          )}
+
+          <p className="small">
+            ID utilisateur :
+            <br />
+            {session.user.id}
           </p>
 
-          <button
-            onClick={signOut}
-          >
+          <p className="small">
+            Rôle :
+            <br />
+            {role || "non défini"}
+          </p>
+
+          <button onClick={signOut}>
             Déconnexion
           </button>
 
         </section>
+
       </main>
     );
   }
 
+  /*
+   * PAGE DE CONNEXION
+   */
+
   return (
     <main className="page">
+
       <section className="card login">
 
         <div className="logo">
@@ -239,8 +359,9 @@ function App() {
         </h1>
 
         <p className="intro">
-          Connectez-vous pour accéder à votre espace
-          Parent, Professeur, École ou Administration.
+          Connectez-vous pour accéder à votre
+          espace Parent, Professeur, École
+          ou Administration.
         </p>
 
         <label>
@@ -271,6 +392,7 @@ function App() {
         </p>
 
       </section>
+
     </main>
   );
 }

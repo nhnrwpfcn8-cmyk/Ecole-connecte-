@@ -14,7 +14,6 @@ export default function AdminDashboard({ session, onLogout }) {
   const [teachers, setTeachers] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -26,109 +25,95 @@ export default function AdminDashboard({ session, onLogout }) {
     setMessage("");
 
     try {
-      /*
-       * PROFESSEURS
-       */
-
-      const teachersResult = await supabase
+      const teachersResponse = await supabase
         .from("profiles")
         .select("id, full_name, phone, role")
         .eq("role", "teacher")
         .order("full_name");
 
-      if (teachersResult.error) {
-        console.error(
-          "Erreur professeurs:",
-          teachersResult.error
-        );
-
-        throw teachersResult.error;
+      if (teachersResponse.error) {
+        throw teachersResponse.error;
       }
 
-      const teacherList =
-        teachersResult.data || [];
+      const teacherList = teachersResponse.data || [];
 
       setTeachers(teacherList);
 
-      /*
-       * AUTRES STATISTIQUES
-       */
+      const studentsResponse = await supabase
+        .from("students")
+        .select("id", {
+          count: "exact",
+          head: true,
+        });
 
-      const [
-        studentsResult,
-        parentsResult,
-        schoolsResult,
-        classesResult,
-        subjectsResult,
-      ] = await Promise.all([
-        supabase
-          .from("students")
-          .select("id", {
-            count: "exact",
-            head: true,
-          }),
+      const parentsResponse = await supabase
+        .from("profiles")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("role", "parent");
 
-        supabase
-          .from("profiles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("role", "parent"),
+      const schoolsResponse = await supabase
+        .from("schools")
+        .select("id", {
+          count: "exact",
+          head: true,
+        });
 
-        supabase
-          .from("schools")
-          .select("id", {
-            count: "exact",
-            head: true,
-          }),
+      const classesResponse = await supabase
+        .from("classes")
+        .select("id", {
+          count: "exact",
+          head: true,
+        });
 
-        supabase
-          .from("classes")
-          .select("id", {
-            count: "exact",
-            head: true,
-          }),
+      const subjectsResponse = await supabase
+        .from("subjects")
+        .select("id", {
+          count: "exact",
+          head: true,
+        });
 
-        supabase
-          .from("subjects")
-          .select("id", {
-            count: "exact",
-            head: true,
-          }),
-      ]);
+      if (studentsResponse.error) {
+        throw studentsResponse.error;
+      }
 
-      const errors = [
-        studentsResult.error,
-        parentsResult.error,
-        schoolsResult.error,
-        classesResult.error,
-        subjectsResult.error,
-      ].filter(Boolean);
+      if (parentsResponse.error) {
+        throw parentsResponse.error;
+      }
 
-      if (errors.length > 0) {
-        throw errors[0];
+      if (schoolsResponse.error) {
+        throw schoolsResponse.error;
+      }
+
+      if (classesResponse.error) {
+        throw classesResponse.error;
+      }
+
+      if (subjectsResponse.error) {
+        throw subjectsResponse.error;
       }
 
       setStats({
         teachers: teacherList.length,
-        students: studentsResult.count || 0,
-        parents: parentsResult.count || 0,
-        schools: schoolsResult.count || 0,
-        classes: classesResult.count || 0,
-        subjects: subjectsResult.count || 0,
+        students: studentsResponse.count || 0,
+        parents: parentsResponse.count || 0,
+        schools: schoolsResponse.count || 0,
+        classes: classesResponse.count || 0,
+        subjects: subjectsResponse.count || 0,
       });
 
     } catch (error) {
       console.error(
-        "Erreur chargement administration:",
+        "Erreur administration :",
         error
       );
 
       setMessage(
         "Erreur : " +
-        (error.message ||
-          "Impossible de charger les données.")
+          (error.message ||
+            "Impossible de charger les données.")
       );
 
     } finally {
@@ -137,18 +122,12 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function refreshTeachers() {
-    setLoadingTeachers(true);
     setMessage("");
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select(
-          "id, full_name, phone, role"
-        )
+        .select("id, full_name, phone, role")
         .eq("role", "teacher")
         .order("full_name");
 
@@ -160,24 +139,21 @@ export default function AdminDashboard({ session, onLogout }) {
 
       setTeachers(list);
 
-      setStats((current) => ({
-        ...current,
+      setStats((previous) => ({
+        ...previous,
         teachers: list.length,
       }));
 
     } catch (error) {
       console.error(
-        "Erreur actualisation professeurs:",
+        "Erreur professeurs :",
         error
       );
 
       setMessage(
         "Impossible de charger les professeurs : " +
-        error.message
+          error.message
       );
-
-    } finally {
-      setLoadingTeachers(false);
     }
   }
 
@@ -194,12 +170,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       <section className="card dashboard">
 
-        {/* EN-TÊTE */}
-
         <div className="top">
 
           <div>
-
             <p className="eyebrow">
               ÉCOLE CONNECTÉE
             </p>
@@ -211,7 +184,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <p>
               {session?.user?.email}
             </p>
-
           </div>
 
           <button
@@ -223,15 +195,11 @@ export default function AdminDashboard({ session, onLogout }) {
 
         </div>
 
-        {/* MESSAGE */}
-
         {message && (
           <p className="message">
             {message}
           </p>
         )}
-
-        {/* STATISTIQUES */}
 
         <div className="grid">
 
@@ -239,7 +207,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.teachers}
             </strong>
-
             <span>
               Professeurs
             </span>
@@ -249,7 +216,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.students}
             </strong>
-
             <span>
               Élèves
             </span>
@@ -259,7 +225,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.parents}
             </strong>
-
             <span>
               Parents
             </span>
@@ -269,7 +234,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.schools}
             </strong>
-
             <span>
               Écoles
             </span>
@@ -279,7 +243,6 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.classes}
             </strong>
-
             <span>
               Classes
             </span>
@@ -289,15 +252,12 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.subjects}
             </strong>
-
             <span>
               Matières
             </span>
           </div>
 
         </div>
-
-        {/* GESTION */}
 
         <div className="notice">
 
@@ -306,22 +266,18 @@ export default function AdminDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Depuis cet espace, vous pouvez
-            administrer les professeurs,
-            élèves, parents, écoles, classes
-            et matières.
+            Depuis cet espace, l'administrateur
+            peut gérer les professeurs, élèves,
+            parents, écoles, classes et matières.
           </p>
 
         </div>
-
-        {/* PROFESSEURS */}
 
         <div className="notice">
 
           <div className="top">
 
             <div>
-
               <h2>
                 👨‍🏫 Professeurs
               </h2>
@@ -333,37 +289,23 @@ export default function AdminDashboard({ session, onLogout }) {
                   : ""} enregistré
                 {teachers.length !== 1
                   ? "s"
-                  : ""}.
+                  : ""}
               </p>
-
             </div>
 
             <button
               onClick={refreshTeachers}
-              disabled={loadingTeachers}
             >
-              {loadingTeachers
-                ? "Actualisation..."
-                : "↻ Actualiser"}
+              ↻ Actualiser
             </button>
 
           </div>
 
           {teachers.length === 0 ? (
 
-            <div className="notice">
-
-              <h3>
-                Aucun professeur affiché
-              </h3>
-
-              <p>
-                Aucun professeur n'est
-                actuellement visible depuis
-                l'application.
-              </p>
-
-            </div>
+            <p>
+              Aucun professeur affiché.
+            </p>
 
           ) : (
 
@@ -385,9 +327,9 @@ export default function AdminDashboard({ session, onLogout }) {
                   </strong>
 
                   <span>
-                    📞{" "}
+                    Téléphone :{" "}
                     {teacher.phone ||
-                      "Téléphone non renseigné"}
+                      "Non renseigné"}
                   </span>
 
                   <span>
@@ -404,15 +346,11 @@ export default function AdminDashboard({ session, onLogout }) {
 
         </div>
 
-        {/* BOUTONS DE GESTION */}
-
         <div className="grid">
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des professeurs sera ajoutée à cette section."
-              )
+              alert("Gestion des professeurs")
             }
           >
             👨‍🏫
@@ -422,9 +360,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des élèves sera ajoutée prochainement."
-              )
+              alert("Gestion des élèves")
             }
           >
             👨‍🎓
@@ -434,9 +370,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des parents sera ajoutée prochainement."
-              )
+              alert("Gestion des parents")
             }
           >
             👨‍👩‍👧
@@ -446,9 +380,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des écoles sera ajoutée prochainement."
-              )
+              alert("Gestion des écoles")
             }
           >
             🏫
@@ -458,9 +390,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des classes sera ajoutée prochainement."
-              )
+              alert("Gestion des classes")
             }
           >
             📚
@@ -470,9 +400,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              alert(
-                "La gestion des matières sera ajoutée prochainement."
-              )
+              alert("Gestion des matières")
             }
           >
             📖

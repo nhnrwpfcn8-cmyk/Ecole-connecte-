@@ -21,26 +21,13 @@ function App() {
       return;
     }
 
-    const userId = currentSession.user.id;
-
-    console.log(
-      "Utilisateur connecté :",
-      userId
-    );
-
     try {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("profiles")
-        .select("id, role")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } =
+        await supabase.rpc("get_my_role");
 
       if (error) {
         console.error(
-          "Erreur récupération profil :",
+          "Erreur récupération rôle :",
           error
         );
 
@@ -55,39 +42,23 @@ function App() {
       }
 
       console.log(
-        "Profil récupéré :",
+        "Rôle récupéré :",
         data
       );
 
-      if (!data) {
-        console.error(
-          "Aucun profil trouvé pour :",
-          userId
-        );
-
-        setRole(null);
-
-        setMessage(
-          "Votre compte existe, mais aucun profil n'est associé à ce compte."
-        );
-
-        return;
-      }
-
-      setRole(data.role || null);
-
+      setRole(data || null);
       setMessage("");
 
     } catch (error) {
       console.error(
-        "Erreur profil :",
+        "Erreur rôle :",
         error
       );
 
       setRole(null);
 
       setMessage(
-        "Impossible de récupérer votre profil."
+        "Impossible de récupérer votre rôle."
       );
     }
   }
@@ -119,13 +90,11 @@ function App() {
           await loadUserRole(
             currentSession
           );
-        } else {
-          setRole(null);
         }
 
       } catch (error) {
         console.error(
-          "Erreur initialisation :",
+          "Erreur session :",
           error
         );
 
@@ -146,24 +115,25 @@ function App() {
 
     const {
       data: authListener,
-    } = supabase.auth.onAuthStateChange(
-      async (_event, nextSession) => {
+    } =
+      supabase.auth.onAuthStateChange(
+        async (_event, nextSession) => {
 
-        if (!mounted) {
-          return;
+          if (!mounted) {
+            return;
+          }
+
+          setSession(nextSession);
+
+          if (nextSession) {
+            await loadUserRole(
+              nextSession
+            );
+          } else {
+            setRole(null);
+          }
         }
-
-        setSession(nextSession);
-
-        if (nextSession) {
-          await loadUserRole(
-            nextSession
-          );
-        } else {
-          setRole(null);
-        }
-      }
-    );
+      );
 
     return () => {
       mounted = false;
@@ -190,21 +160,17 @@ function App() {
     try {
       const {
         error,
-      } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
+      } =
+        await supabase.auth.signInWithOtp({
+          email: cleanEmail,
 
-        options: {
-          emailRedirectTo:
-            window.location.origin,
-        },
-      });
+          options: {
+            emailRedirectTo:
+              window.location.origin,
+          },
+        });
 
       if (error) {
-        console.error(
-          "Erreur connexion :",
-          error
-        );
-
         setMessage(
           "Erreur Supabase : " +
           error.message
@@ -218,10 +184,7 @@ function App() {
       );
 
     } catch (error) {
-      console.error(
-        "Erreur réseau :",
-        error
-      );
+      console.error(error);
 
       setMessage(
         "Impossible de contacter Supabase."
@@ -237,10 +200,6 @@ function App() {
     setMessage("");
   }
 
-  /*
-   * CHARGEMENT
-   */
-
   if (loading) {
     return (
       <div className="center">
@@ -250,41 +209,36 @@ function App() {
   }
 
   /*
-   * UTILISATEUR CONNECTÉ
+   * ADMIN
+   */
+
+  if (session && role === "admin") {
+    return (
+      <AdminDashboard
+        session={session}
+        onLogout={signOut}
+      />
+    );
+  }
+
+  /*
+   * PROFESSEUR
+   */
+
+  if (session && role === "teacher") {
+    return (
+      <TeacherDashboard
+        session={session}
+        onLogout={signOut}
+      />
+    );
+  }
+
+  /*
+   * COMPTE CONNECTÉ MAIS RÔLE INCONNU
    */
 
   if (session) {
-
-    /*
-     * ADMIN
-     */
-
-    if (role === "admin") {
-      return (
-        <AdminDashboard
-          session={session}
-          onLogout={signOut}
-        />
-      );
-    }
-
-    /*
-     * PROFESSEUR
-     */
-
-    if (role === "teacher") {
-      return (
-        <TeacherDashboard
-          session={session}
-          onLogout={signOut}
-        />
-      );
-    }
-
-    /*
-     * RÔLE INCONNU
-     */
-
     return (
       <main className="page">
 
@@ -315,13 +269,7 @@ function App() {
           )}
 
           <p className="small">
-            ID utilisateur :
-            <br />
-            {session.user.id}
-          </p>
-
-          <p className="small">
-            Rôle :
+            Rôle actuel :
             <br />
             {role || "non défini"}
           </p>
@@ -337,7 +285,7 @@ function App() {
   }
 
   /*
-   * PAGE DE CONNEXION
+   * CONNEXION
    */
 
   return (

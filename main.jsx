@@ -2,28 +2,79 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
 import TeacherDashboard from "./TeacherDashboard.jsx";
+import AdminDashboard from "./AdminDashboard.jsx";
 import "./styles.css";
 
 function App() {
   const [session, setSession] = useState(null);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
+  async function loadUserRole(currentSession) {
+    if (!currentSession) {
+      setRole(null);
+      return;
+    }
+
+    try {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", currentSession.user.id)
+        .single();
+
+      if (error) {
+        console.error("Erreur profil:", error);
+        setRole(null);
+        setMessage(
+          "Impossible de récupérer votre rôle : " +
+          error.message
+        );
+        return;
+      }
+
+      setRole(profile?.role || null);
+    } catch (error) {
+      console.error("Erreur récupération rôle:", error);
+      setRole(null);
+      setMessage(
+        "Impossible de récupérer votre profil."
+      );
+    }
+  }
+
   useEffect(() => {
     async function loadSession() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } =
+          await supabase.auth.getSession();
 
         if (error) {
           console.error("Erreur Supabase:", error);
-          setMessage("Erreur Supabase : " + error.message);
+          setMessage(
+            "Erreur Supabase : " + error.message
+          );
+          return;
         }
 
-        setSession(data?.session || null);
+        const currentSession = data?.session || null;
+
+        setSession(currentSession);
+
+        if (currentSession) {
+          await loadUserRole(currentSession);
+        }
       } catch (error) {
-        console.error("Erreur réseau Supabase:", error);
-        setMessage("Connexion à Supabase impossible.");
+        console.error(
+          "Erreur réseau Supabase:",
+          error
+        );
+
+        setMessage(
+          "Connexion à Supabase impossible."
+        );
       } finally {
         setLoading(false);
       }
@@ -34,8 +85,14 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      async (_event, nextSession) => {
         setSession(nextSession);
+
+        if (nextSession) {
+          await loadUserRole(nextSession);
+        } else {
+          setRole(null);
+        }
       }
     );
 
@@ -50,21 +107,31 @@ function App() {
     const cleanEmail = email.trim();
 
     if (!cleanEmail) {
-      setMessage("Veuillez saisir votre adresse e-mail.");
+      setMessage(
+        "Veuillez saisir votre adresse e-mail."
+      );
       return;
     }
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          emailRedirectTo: window.location.origin
-        },
-      });
+      const { error } =
+        await supabase.auth.signInWithOtp({
+          email: cleanEmail,
+          options: {
+            emailRedirectTo: window.location.origin,
+          },
+        });
 
       if (error) {
-        console.error("Erreur connexion:", error);
-        setMessage("Erreur Supabase : " + error.message);
+        console.error(
+          "Erreur connexion:",
+          error
+        );
+
+        setMessage(
+          "Erreur Supabase : " + error.message
+        );
+
         return;
       }
 
@@ -72,7 +139,11 @@ function App() {
         "Un lien de connexion a été envoyé à votre e-mail."
       );
     } catch (error) {
-      console.error("Erreur réseau:", error);
+      console.error(
+        "Erreur réseau:",
+        error
+      );
+
       setMessage(
         "Load failed : impossible de contacter Supabase."
       );
@@ -81,6 +152,8 @@ function App() {
 
   async function signOut() {
     await supabase.auth.signOut();
+    setSession(null);
+    setRole(null);
   }
 
   if (loading) {
@@ -90,57 +163,58 @@ function App() {
       </div>
     );
   }
-if (session) {
-  return (
-    <TeacherDashboard
-      session={session}
-      onLogout={signOut}
-    />
-  );
-}
-  if (!session) {
+
+  if (session) {
+
+    if (role === "admin") {
+      return (
+        <AdminDashboard
+          session={session}
+          onLogout={signOut}
+        />
+      );
+    }
+
+    if (role === "teacher") {
+      return (
+        <TeacherDashboard
+          session={session}
+          onLogout={signOut}
+        />
+      );
+    }
+
     return (
       <main className="page">
         <section className="card login">
 
-          <div className="logo">EC</div>
+          <div className="logo">
+            EC
+          </div>
 
           <p className="eyebrow">
             ÉCOLE CONNECTÉE
           </p>
 
           <h1>
-            La sécurité et le suivi des élèves au cœur de l’école.
+            Rôle non configuré
           </h1>
 
           <p className="intro">
-            Connectez-vous pour accéder à votre espace Parent ou École.
+            Votre compte est bien connecté,
+            mais aucun espace n'est encore configuré
+            pour votre rôle.
           </p>
 
-          <label>
-            Adresse e-mail
-          </label>
+          <p className="message">
+            Rôle actuel : {role || "non défini"}
+          </p>
 
-          <input
-            type="email"
-            placeholder="exemple@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <button onClick={signIn}>
-            Recevoir mon lien de connexion
+          <button
+            onClick={signOut}
+          >
+            Déconnexion
           </button>
-
-          {message && (
-            <p className="message">
-              {message}
-            </p>
-          )}
-
-          <p className="small">
-            Connexion sécurisée par Supabase.
-          </p>
 
         </section>
       </main>
@@ -149,63 +223,52 @@ if (session) {
 
   return (
     <main className="page">
-      <section className="card dashboard">
+      <section className="card login">
 
-        <div className="top">
-          <div>
-            <p className="eyebrow">
-              ÉCOLE CONNECTÉE
-            </p>
-
-            <h1>
-              Bienvenue 👋
-            </h1>
-
-            <p>
-              {session.user.email}
-            </p>
-          </div>
-
-          <button
-            className="secondary"
-            onClick={signOut}
-          >
-            Déconnexion
-          </button>
+        <div className="logo">
+          EC
         </div>
 
-        <div className="grid">
+        <p className="eyebrow">
+          ÉCOLE CONNECTÉE
+        </p>
 
-          <div className="stat">
-            <strong>0</strong>
-            <span>Enfants associés</span>
-          </div>
+        <h1>
+          La sécurité et le suivi des élèves
+          au cœur de l’école.
+        </h1>
 
-          <div className="stat">
-            <strong>0</strong>
-            <span>Présences aujourd'hui</span>
-          </div>
+        <p className="intro">
+          Connectez-vous pour accéder à votre espace
+          Parent, Professeur, École ou Administration.
+        </p>
 
-          <div className="stat">
-            <strong>0</strong>
-            <span>Notifications</span>
-          </div>
+        <label>
+          Adresse e-mail
+        </label>
 
-        </div>
+        <input
+          type="email"
+          placeholder="exemple@email.com"
+          value={email}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
+        />
 
-        <div className="notice">
+        <button onClick={signIn}>
+          Recevoir mon lien de connexion
+        </button>
 
-          <h2>
-            Votre espace est prêt
-          </h2>
-
-          <p>
-            La connexion réelle à Supabase fonctionne.
-            La prochaine étape sera d'afficher les élèves,
-            les présences et les notifications liés à votre compte.
+        {message && (
+          <p className="message">
+            {message}
           </p>
+        )}
 
-        </div>
+        <p className="small">
+          Connexion sécurisée par Supabase.
+        </p>
 
       </section>
     </main>

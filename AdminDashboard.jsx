@@ -1,284 +1,594 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./src/lib/supabase";
 
-export default function AdminDashboard({ session, onLogout }) {
-  const [stats, setStats] = useState({
-    teachers: 0,
-    students: 0,
-    parents: 0,
-    schools: 0,
-    classes: 0,
-    subjects: 0,
-  });
+export default function AdminDashboard({
+  session,
+  onLogout
+}) {
+  const [activeSection, setActiveSection] =
+    useState("overview");
 
-  const [teachers, setTeachers] = useState([]);
-  const [schools, setSchools] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [showTeacherForm, setShowTeacherForm] = useState(false);
-  const [showSchoolForm, setShowSchoolForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [schools, setSchools] =
+    useState([]);
 
-  const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    school_id: "",
-  });
+  const [teachers, setTeachers] =
+    useState([]);
 
-  const [schoolForm, setSchoolForm] = useState({
-    name: "",
-    address: "",
-    city: "",
-    phone: "",
-    email: "",
-  });
+  const [students, setStudents] =
+    useState([]);
 
-  const [classForm, setClassForm] = useState({
-    school_id: "",
-    name: "",
-    level: "",
-  });
+  const [classes, setClasses] =
+    useState([]);
 
-  const [subjectForm, setSubjectForm] = useState({
-    name: "",
-  });
+  const [subjects, setSubjects] =
+    useState([]);
 
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [editingSchool, setEditingSchool] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editingSubject, setEditingSubject] = useState(null);
+  const [documents, setDocuments] =
+    useState([]);
+
+  const [exercises, setExercises] =
+    useState([]);
+
+  const [questions, setQuestions] =
+    useState([]);
+
+  const [attendance, setAttendance] =
+    useState([]);
+
+  const [notifications, setNotifications] =
+    useState([]);
+
+  /* =========================
+     FORMULAIRES
+  ========================= */
+
+  const [showSchoolForm, setShowSchoolForm] =
+    useState(false);
+
+  const [schoolName, setSchoolName] =
+    useState("");
+
+  const [schoolAddress, setSchoolAddress] =
+    useState("");
+
+  const [schoolCity, setSchoolCity] =
+    useState("Dakar");
+
+  const [schoolPhone, setSchoolPhone] =
+    useState("");
+
+  const [schoolEmail, setSchoolEmail] =
+    useState("");
+
+  const [savingSchool, setSavingSchool] =
+    useState(false);
+
+  const [showClassForm, setShowClassForm] =
+    useState(false);
+
+  const [className, setClassName] =
+    useState("");
+
+  const [classLevel, setClassLevel] =
+    useState("");
+
+  const [selectedSchoolId, setSelectedSchoolId] =
+    useState("");
+
+  const [savingClass, setSavingClass] =
+    useState(false);
+
+  const [showSubjectForm, setShowSubjectForm] =
+    useState(false);
+
+  const [subjectName, setSubjectName] =
+    useState("");
+
+  const [savingSubject, setSavingSubject] =
+    useState(false);
+
+  const [showStudentForm, setShowStudentForm] =
+    useState(false);
+
+  const [studentFirstName, setStudentFirstName] =
+    useState("");
+
+  const [studentLastName, setStudentLastName] =
+    useState("");
+
+  const [studentCode, setStudentCode] =
+    useState("");
+
+  const [studentSchoolId, setStudentSchoolId] =
+    useState("");
+
+  const [studentClassId, setStudentClassId] =
+    useState("");
+
+  const [savingStudent, setSavingStudent] =
+    useState(false);
+
+  /* =========================
+     CHARGEMENT
+  ========================= */
 
   useEffect(() => {
-    loadData();
+    loadAllData();
   }, []);
 
-  async function loadData() {
+  async function loadAllData() {
     setLoading(true);
     setMessage("");
 
     try {
+      const results =
+        await Promise.all([
+          supabase
+            .from("schools")
+            .select("*")
+            .order("name"),
+
+          supabase
+            .from("profiles")
+            .select(
+              "id, full_name, phone, role, school_id"
+            )
+            .eq("role", "teacher")
+            .order("full_name"),
+
+          supabase
+            .from("students")
+            .select("*")
+            .order("last_name"),
+
+          supabase
+            .from("classes")
+            .select("*")
+            .order("name"),
+
+          supabase
+            .from("subjects")
+            .select("*")
+            .order("name"),
+
+          supabase
+            .from("documents")
+            .select("*")
+            .order("created_at", {
+              ascending: false
+            }),
+
+          supabase
+            .from("exercises")
+            .select("*")
+            .order("created_at", {
+              ascending: false
+            }),
+
+          supabase
+            .from("exercise_questions")
+            .select("*")
+            .order("position"),
+
+          supabase
+            .from("attendance")
+            .select("*")
+            .order("date", {
+              ascending: false
+            }),
+
+          supabase
+            .from("notifications")
+            .select("*")
+            .order("created_at", {
+              ascending: false
+            })
+        ]);
+
       const [
+        schoolsResult,
         teachersResult,
         studentsResult,
-        parentsResult,
-        schoolsResult,
         classesResult,
         subjectsResult,
-      ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id, full_name, phone, role, school_id"
-          )
-          .eq("role", "teacher")
-          .order("full_name"),
+        documentsResult,
+        exercisesResult,
+        questionsResult,
+        attendanceResult,
+        notificationsResult
+      ] = results;
 
-        supabase
-          .from("students")
-          .select("id", {
-            count: "exact",
-            head: true,
-          }),
+      const firstError = results.find(
+        (result) => result.error
+      );
 
-        supabase
-          .from("profiles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("role", "parent"),
+      if (firstError?.error) {
+        console.error(
+          "Erreur chargement :",
+          firstError.error
+        );
 
-        supabase
-          .from("schools")
-          .select(
-            "id, name, address, city, phone, email"
-          )
-          .order("name"),
-
-        supabase
-          .from("classes")
-          .select(
-            "id, school_id, name, level"
-          )
-          .order("name"),
-
-        supabase
-          .from("subjects")
-          .select("id, name")
-          .order("name"),
-      ]);
-
-      const errors = [
-        teachersResult.error,
-        studentsResult.error,
-        parentsResult.error,
-        schoolsResult.error,
-        classesResult.error,
-        subjectsResult.error,
-      ].filter(Boolean);
-
-      if (errors.length > 0) {
-        throw errors[0];
+        setMessage(
+          "Certaines données n'ont pas pu être chargées : " +
+          firstError.error.message
+        );
       }
 
-      setTeachers(teachersResult.data || []);
-      setSchools(schoolsResult.data || []);
-      setClasses(classesResult.data || []);
-      setSubjects(subjectsResult.data || []);
+      setSchools(
+        schoolsResult.data || []
+      );
 
-      setStats({
-        teachers: teachersResult.data?.length || 0,
-        students: studentsResult.count || 0,
-        parents: parentsResult.count || 0,
-        schools: schoolsResult.data?.length || 0,
-        classes: classesResult.data?.length || 0,
-        subjects: subjectsResult.data?.length || 0,
-      });
+      setTeachers(
+        teachersResult.data || []
+      );
+
+      setStudents(
+        studentsResult.data || []
+      );
+
+      setClasses(
+        classesResult.data || []
+      );
+
+      setSubjects(
+        subjectsResult.data || []
+      );
+
+      setDocuments(
+        documentsResult.data || []
+      );
+
+      setExercises(
+        exercisesResult.data || []
+      );
+
+      setQuestions(
+        questionsResult.data || []
+      );
+
+      setAttendance(
+        attendanceResult.data || []
+      );
+
+      setNotifications(
+        notificationsResult.data || []
+      );
+
     } catch (error) {
       console.error(error);
 
       setMessage(
-        "Impossible de charger les données : " +
-          error.message
+        "Erreur : " + error.message
       );
     } finally {
       setLoading(false);
     }
   }
 
-  async function createTeacher(e) {
-    e.preventDefault();
+  /* =========================
+     ÉCOLES
+  ========================= */
+
+  async function createSchool() {
     setMessage("");
 
-    if (!teacherForm.school_id) {
+    if (!schoolName.trim()) {
       setMessage(
-        "Veuillez choisir l'école du professeur."
+        "Le nom de l'école est obligatoire."
       );
       return;
     }
 
+    setSavingSchool(true);
+
     try {
-      const { data, error } =
-        await supabase.functions.invoke(
-          "create-user",
-          {
-            body: {
-              full_name:
-                teacherForm.full_name,
-              email: teacherForm.email,
-              phone: teacherForm.phone,
-              role: "teacher",
-              school_id:
-                teacherForm.school_id,
-            },
-          }
-        );
+      const {
+        error
+      } = await supabase
+        .from("schools")
+        .insert({
+          name: schoolName.trim(),
+          address:
+            schoolAddress.trim() || null,
+          city:
+            schoolCity.trim() || null,
+          phone:
+            schoolPhone.trim() || null,
+          email:
+            schoolEmail.trim() || null
+        });
 
       if (error) {
         throw error;
       }
 
-      if (!data?.success) {
-        throw new Error(
-          data?.error ||
-            "Impossible de créer le professeur."
-        );
-      }
-
       setMessage(
-        "Professeur créé avec succès."
+        "École ajoutée avec succès."
       );
 
-      setTeacherForm({
-        full_name: "",
-        email: "",
-        phone: "",
-        school_id: "",
-      });
+      setSchoolName("");
+      setSchoolAddress("");
+      setSchoolCity("Dakar");
+      setSchoolPhone("");
+      setSchoolEmail("");
+      setShowSchoolForm(false);
 
-      setShowTeacherForm(false);
+      await loadAllData();
 
-      await loadData();
     } catch (error) {
       console.error(error);
 
       setMessage(
-        "Erreur création professeur : " +
-          error.message
+        "Erreur : " + error.message
       );
+    } finally {
+      setSavingSchool(false);
     }
   }
 
-  async function updateTeacher(e) {
-    e.preventDefault();
+  /* =========================
+     CLASSES
+  ========================= */
+
+  async function createClass() {
     setMessage("");
 
-    if (!teacherForm.school_id) {
+    if (!className.trim()) {
       setMessage(
-        "Veuillez choisir l'école du professeur."
+        "Le nom de la classe est obligatoire."
       );
       return;
     }
 
+    if (!selectedSchoolId) {
+      setMessage(
+        "Veuillez choisir une école."
+      );
+      return;
+    }
+
+    setSavingClass(true);
+
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name:
-            teacherForm.full_name,
-          phone: teacherForm.phone,
+      const {
+        error
+      } = await supabase
+        .from("classes")
+        .insert({
           school_id:
-            teacherForm.school_id,
-        })
-        .eq("id", editingTeacher.id);
+            selectedSchoolId,
+          name:
+            className.trim(),
+          level:
+            classLevel.trim() || null
+        });
 
       if (error) {
         throw error;
       }
 
       setMessage(
-        "Professeur modifié avec succès."
+        "Classe ajoutée avec succès."
       );
 
-      setEditingTeacher(null);
+      setClassName("");
+      setClassLevel("");
+      setSelectedSchoolId("");
+      setShowClassForm(false);
 
-      setTeacherForm({
-        full_name: "",
-        email: "",
-        phone: "",
-        school_id: "",
-      });
+      await loadAllData();
 
-      setShowTeacherForm(false);
+    } catch (error) {
+      console.error(error);
 
-      await loadData();
+      setMessage(
+        "Erreur : " + error.message
+      );
+    } finally {
+      setSavingClass(false);
+    }
+  }
+
+  /* =========================
+     MATIÈRES
+  ========================= */
+
+  async function createSubject() {
+    setMessage("");
+
+    if (!subjectName.trim()) {
+      setMessage(
+        "Le nom de la matière est obligatoire."
+      );
+      return;
+    }
+
+    setSavingSubject(true);
+
+    try {
+      const {
+        error
+      } = await supabase
+        .from("subjects")
+        .insert({
+          name:
+            subjectName.trim()
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage(
+        "Matière ajoutée avec succès."
+      );
+
+      setSubjectName("");
+      setShowSubjectForm(false);
+
+      await loadAllData();
+
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        "Erreur : " + error.message
+      );
+    } finally {
+      setSavingSubject(false);
+    }
+  }
+
+  /* =========================
+     ÉLÈVES
+  ========================= */
+
+  async function createStudent() {
+    setMessage("");
+
+    if (!studentFirstName.trim()) {
+      setMessage(
+        "Le prénom est obligatoire."
+      );
+      return;
+    }
+
+    if (!studentLastName.trim()) {
+      setMessage(
+        "Le nom est obligatoire."
+      );
+      return;
+    }
+
+    if (!studentSchoolId) {
+      setMessage(
+        "Veuillez choisir une école."
+      );
+      return;
+    }
+
+    setSavingStudent(true);
+
+    try {
+      const {
+        error
+      } = await supabase
+        .from("students")
+        .insert({
+          school_id:
+            studentSchoolId,
+
+          class_id:
+            studentClassId || null,
+
+          first_name:
+            studentFirstName.trim(),
+
+          last_name:
+            studentLastName.trim(),
+
+          student_code:
+            studentCode.trim() || null,
+
+          active:
+            true
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage(
+        "Élève ajouté avec succès."
+      );
+
+      setStudentFirstName("");
+      setStudentLastName("");
+      setStudentCode("");
+      setStudentSchoolId("");
+      setStudentClassId("");
+      setShowStudentForm(false);
+
+      await loadAllData();
+
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        "Erreur : " + error.message
+      );
+    } finally {
+      setSavingStudent(false);
+    }
+  }
+
+  /* =========================
+     ACTIVER / DÉSACTIVER ÉLÈVE
+  ========================= */
+
+  async function toggleStudent(student) {
+    try {
+      const {
+        error
+      } = await supabase
+        .from("students")
+        .update({
+          active:
+            student.active === false
+        })
+        .eq("id", student.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage(
+        student.active === false
+          ? "Élève activé."
+          : "Élève désactivé."
+      );
+
+      await loadAllData();
+
     } catch (error) {
       setMessage(
-        "Erreur modification professeur : " +
-          error.message
+        "Erreur : " + error.message
       );
     }
   }
 
+  /* =========================
+     ACTIVER / DÉSACTIVER PROF
+     
+     Remarque :
+     profiles ne possède pas de
+     colonne active dans notre
+     structure connue.
+
+     On utilise donc le rôle :
+     teacher = actif
+     suspended = désactivé
+  ========================= */
+
   async function toggleTeacher(teacher) {
-    setMessage("");
+    const newRole =
+      teacher.role === "teacher"
+        ? "suspended"
+        : "teacher";
 
     try {
-      const newRole =
-        teacher.role === "teacher"
-          ? "inactive"
-          : "teacher";
-
-      const { error } = await supabase
+      const {
+        error
+      } = await supabase
         .from("profiles")
         .update({
-          role: newRole,
+          role: newRole
         })
         .eq("id", teacher.id);
 
@@ -292,7 +602,8 @@ export default function AdminDashboard({ session, onLogout }) {
           : "Professeur désactivé."
       );
 
-      await loadData();
+      await loadAllData();
+
     } catch (error) {
       setMessage(
         "Erreur : " + error.message
@@ -300,351 +611,162 @@ export default function AdminDashboard({ session, onLogout }) {
     }
   }
 
-  async function saveSchool(e) {
-    e.preventDefault();
-    setMessage("");
+  /* =========================
+     SUPPRESSION D'UN DOCUMENT
+  ========================= */
 
-    try {
-      if (editingSchool) {
-        const { error } = await supabase
-          .from("schools")
-          .update(schoolForm)
-          .eq("id", editingSchool.id);
-
-        if (error) throw error;
-
-        setMessage(
-          "École modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("schools")
-          .insert([schoolForm]);
-
-        if (error) throw error;
-
-        setMessage(
-          "École créée avec succès."
-        );
-      }
-
-      setSchoolForm({
-        name: "",
-        address: "",
-        city: "",
-        phone: "",
-        email: "",
-      });
-
-      setEditingSchool(null);
-      setShowSchoolForm(false);
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur école : " +
-          error.message
+  async function deleteDocument(documentId) {
+    const confirmed =
+      window.confirm(
+        "Voulez-vous vraiment supprimer ce document ?"
       );
-    }
-  }
 
-  async function deleteSchool(school) {
-    const confirmed = window.confirm(
-      "Voulez-vous vraiment supprimer cette école ?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from("schools")
-        .delete()
-        .eq("id", school.id);
-
-      if (error) throw error;
-
-      setMessage("École supprimée.");
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression école : " +
-          error.message
-      );
-    }
-  }
-
-  async function saveClass(e) {
-    e.preventDefault();
-    setMessage("");
-
-    if (!classForm.school_id) {
-      setMessage(
-        "Veuillez choisir une école."
-      );
-      return;
-    }
-
-    if (!classForm.name.trim()) {
-      setMessage(
-        "Veuillez saisir le nom de la classe."
-      );
+    if (!confirmed) {
       return;
     }
 
     try {
-      if (editingClass) {
-        const { error } = await supabase
-          .from("classes")
-          .update({
-            school_id:
-              classForm.school_id,
-            name:
-              classForm.name.trim(),
-            level:
-              classForm.level.trim() ||
-              null,
-          })
-          .eq("id", editingClass.id);
+      const {
+        error
+      } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", documentId);
 
-        if (error) throw error;
-
-        setMessage(
-          "Classe modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("classes")
-          .insert([
-            {
-              school_id:
-                classForm.school_id,
-              name:
-                classForm.name.trim(),
-              level:
-                classForm.level.trim() ||
-                null,
-            },
-          ]);
-
-        if (error) throw error;
-
-        setMessage(
-          "Classe créée avec succès."
-        );
+      if (error) {
+        throw error;
       }
 
-      setClassForm({
-        school_id: "",
-        name: "",
-        level: "",
-      });
+      setMessage(
+        "Document supprimé."
+      );
 
-      setEditingClass(null);
-      setShowClassForm(false);
+      await loadAllData();
 
-      await loadData();
     } catch (error) {
       setMessage(
-        "Erreur classe : " +
-          error.message
+        "Erreur : " + error.message
       );
     }
   }
 
-  async function deleteClass(classItem) {
-    const confirmed = window.confirm(
-      "Voulez-vous vraiment supprimer cette classe ?"
-    );
+  /* =========================
+     SUPPRESSION D'UN EXERCICE
+  ========================= */
 
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from("classes")
-        .delete()
-        .eq("id", classItem.id);
-
-      if (error) throw error;
-
-      setMessage("Classe supprimée.");
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression classe : " +
-          error.message
+  async function deleteExercise(exerciseId) {
+    const confirmed =
+      window.confirm(
+        "Voulez-vous vraiment supprimer cet exercice ?"
       );
-    }
-  }
 
-  async function saveSubject(e) {
-    e.preventDefault();
-    setMessage("");
-
-    const name = subjectForm.name.trim();
-
-    if (!name) {
-      setMessage(
-        "Veuillez saisir le nom de la matière."
-      );
+    if (!confirmed) {
       return;
     }
 
     try {
-      if (editingSubject) {
-        const { error } = await supabase
-          .from("subjects")
-          .update({ name })
-          .eq("id", editingSubject.id);
+      const {
+        error
+      } = await supabase
+        .from("exercises")
+        .delete()
+        .eq("id", exerciseId);
 
-        if (error) throw error;
-
-        setMessage(
-          "Matière modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("subjects")
-          .insert([{ name }]);
-
-        if (error) throw error;
-
-        setMessage(
-          "Matière créée avec succès."
-        );
+      if (error) {
+        throw error;
       }
 
-      setSubjectForm({ name: "" });
-      setEditingSubject(null);
-      setShowSubjectForm(false);
+      setMessage(
+        "Exercice supprimé."
+      );
 
-      await loadData();
+      await loadAllData();
+
     } catch (error) {
       setMessage(
-        "Erreur matière : " +
-          error.message
+        "Erreur : " + error.message
       );
     }
   }
 
-  async function deleteSubject(subject) {
-    const confirmed = window.confirm(
-      "Voulez-vous vraiment supprimer cette matière ?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from("subjects")
-        .delete()
-        .eq("id", subject.id);
-
-      if (error) throw error;
-
-      setMessage(
-        "Matière supprimée."
-      );
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression matière : " +
-          error.message
-      );
-    }
-  }
+  /* =========================
+     ÉCOLE PAR ID
+  ========================= */
 
   function getSchoolName(schoolId) {
-    const school = schools.find(
-      (item) => item.id === schoolId
-    );
+    const school =
+      schools.find(
+        (item) =>
+          item.id === schoolId
+      );
 
-    return (
-      school?.name ||
-      "École non configurée"
-    );
+    return school?.name ||
+      "École non définie";
   }
 
-  function startEditTeacher(teacher) {
-    setEditingTeacher(teacher);
+  /* =========================
+     CLASSE PAR ID
+  ========================= */
 
-    setTeacherForm({
-      full_name:
-        teacher.full_name || "",
-      email: "",
-      phone:
-        teacher.phone || "",
-      school_id:
-        teacher.school_id || "",
-    });
+  function getClassName(classId) {
+    const item =
+      classes.find(
+        (item) =>
+          item.id === classId
+      );
 
-    setShowTeacherForm(true);
+    return item?.name ||
+      "Classe non définie";
   }
 
-  function startEditSchool(school) {
-    setEditingSchool(school);
+  /* =========================
+     MATIÈRE PAR ID
+  ========================= */
 
-    setSchoolForm({
-      name: school.name || "",
-      address:
-        school.address || "",
-      city: school.city || "",
-      phone:
-        school.phone || "",
-      email:
-        school.email || "",
-    });
+  function getSubjectName(subjectId) {
+    const item =
+      subjects.find(
+        (item) =>
+          Number(item.id) ===
+          Number(subjectId)
+      );
 
-    setShowSchoolForm(true);
+    return item?.name ||
+      "Matière non définie";
   }
 
-  function startEditClass(classItem) {
-    setEditingClass(classItem);
-
-    setClassForm({
-      school_id:
-        classItem.school_id || "",
-      name:
-        classItem.name || "",
-      level:
-        classItem.level || "",
-    });
-
-    setShowClassForm(true);
-  }
-
-  function startEditSubject(subject) {
-    setEditingSubject(subject);
-
-    setSubjectForm({
-      name: subject.name || "",
-    });
-
-    setShowSubjectForm(true);
-  }
+  /* =========================
+     CHARGEMENT
+  ========================= */
 
   if (loading) {
     return (
       <div className="center">
-        Chargement de l'administration…
+        Chargement du tableau
+        de bord administrateur…
       </div>
     );
   }
+
+  /* =========================
+     INTERFACE
+  ========================= */
 
   return (
     <main className="page">
       <section className="card dashboard">
 
+        {/* HEADER */}
+
         <div className="top">
+
           <div>
             <p className="eyebrow">
               ÉCOLE CONNECTÉE
             </p>
 
             <h1>
-              Administration 🛠️
+              Administration 👑
             </h1>
 
             <p>
@@ -658,241 +780,424 @@ export default function AdminDashboard({ session, onLogout }) {
           >
             Déconnexion
           </button>
+
         </div>
 
+        {/* MESSAGE */}
+
         {message && (
-          <p className="message">
-            {message}
-          </p>
+          <div className="notice">
+            <p className="message">
+              {message}
+            </p>
+          </div>
         )}
+
+        {/* STATISTIQUES */}
 
         <div className="grid">
 
           <div className="stat">
             <strong>
-              {stats.teachers}
+              {schools.length}
             </strong>
-            <span>Professeurs</span>
+            <span>
+              🏫 Écoles
+            </span>
           </div>
 
           <div className="stat">
             <strong>
-              {stats.students}
+              {teachers.length}
             </strong>
-            <span>Élèves</span>
+            <span>
+              👨‍🏫 Professeurs
+            </span>
           </div>
 
           <div className="stat">
             <strong>
-              {stats.parents}
+              {students.length}
             </strong>
-            <span>Parents</span>
+            <span>
+              👨‍🎓 Élèves
+            </span>
           </div>
 
           <div className="stat">
             <strong>
-              {stats.schools}
+              {classes.length}
             </strong>
-            <span>Écoles</span>
+            <span>
+              🏷️ Classes
+            </span>
           </div>
 
           <div className="stat">
             <strong>
-              {stats.classes}
+              {subjects.length}
             </strong>
-            <span>Classes</span>
+            <span>
+              📚 Matières
+            </span>
           </div>
 
           <div className="stat">
             <strong>
-              {stats.subjects}
+              {documents.length}
             </strong>
-            <span>Matières</span>
+            <span>
+              📖 Documents
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {exercises.length}
+            </strong>
+            <span>
+              📝 Exercices
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {questions.length}
+            </strong>
+            <span>
+              ❓ Questions
+            </span>
           </div>
 
         </div>
 
-        {/* PROFESSEURS */}
+        {/* MENU ADMIN */}
 
         <div className="notice">
+
           <h2>
-            👨‍🏫 Gestion des professeurs
+            👑 Centre de contrôle
           </h2>
 
-          <button
-            onClick={() => {
-              setEditingTeacher(null);
+          <div className="grid">
 
-              setTeacherForm({
-                full_name: "",
-                email: "",
-                phone: "",
-                school_id: "",
-              });
+            <button
+              onClick={() =>
+                setActiveSection("overview")
+              }
+            >
+              📊 Vue générale
+            </button>
 
-              setShowTeacherForm(
-                !showTeacherForm
-              );
-            }}
-          >
-            ➕ Nouveau professeur
-          </button>
+            <button
+              onClick={() =>
+                setActiveSection("schools")
+              }
+            >
+              🏫 Écoles
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("teachers")
+              }
+            >
+              👨‍🏫 Professeurs
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("students")
+              }
+            >
+              👨‍🎓 Élèves
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("classes")
+              }
+            >
+              🏷️ Classes
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("subjects")
+              }
+            >
+              📚 Matières
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("documents")
+              }
+            >
+              📖 Documents
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("exercises")
+              }
+            >
+              📝 Exercices
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("attendance")
+              }
+            >
+              📊 Présences
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveSection("notifications")
+              }
+            >
+              🔔 Notifications
+            </button>
+
+          </div>
+
         </div>
 
-        {showTeacherForm && (
-          <form
-            className="notice"
-            onSubmit={
-              editingTeacher
-                ? updateTeacher
-                : createTeacher
-            }
-          >
-            <h3>
-              {editingTeacher
-                ? "Modifier le professeur"
-                : "Nouveau professeur"}
-            </h3>
+        {/* =====================
+            VUE GÉNÉRALE
+        ===================== */}
 
-            <label>
-              Nom complet
-            </label>
+        {activeSection === "overview" && (
+          <div className="notice">
 
-            <input
-              type="text"
-              placeholder="Ex : Mamadou Diop"
-              value={
-                teacherForm.full_name
+            <h2>
+              📊 Vue générale
+            </h2>
+
+            <p>
+              L'administrateur possède
+              une vue globale de la
+              plateforme.
+            </p>
+
+            <p>
+              👨‍🏫 {teachers.length} professeurs
+            </p>
+
+            <p>
+              👨‍🎓 {students.length} élèves
+            </p>
+
+            <p>
+              🏫 {schools.length} écoles
+            </p>
+
+            <p>
+              📚 {subjects.length} matières
+            </p>
+
+            <p>
+              📝 {exercises.length} exercices
+            </p>
+
+            <p>
+              📖 {documents.length} documents
+            </p>
+
+            <p>
+              📊 {attendance.length} enregistrements
+              de présence
+            </p>
+
+            <p>
+              🔔 {notifications.length} notifications
+            </p>
+
+          </div>
+        )}
+
+        {/* =====================
+            ÉCOLES
+        ===================== */}
+
+        {activeSection === "schools" && (
+          <div className="notice">
+
+            <h2>
+              🏫 Gestion des écoles
+            </h2>
+
+            <button
+              onClick={() =>
+                setShowSchoolForm(
+                  !showSchoolForm
+                )
               }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  full_name:
-                    e.target.value,
-                })
-              }
-              required
-            />
+            >
+              {showSchoolForm
+                ? "Fermer"
+                : "+ Ajouter une école"}
+            </button>
 
-            {!editingTeacher && (
-              <>
+            {showSchoolForm && (
+              <div className="card">
+
+                <h3>
+                  Nouvelle école
+                </h3>
+
                 <label>
-                  Adresse e-mail
+                  Nom
+                </label>
+
+                <input
+                  value={schoolName}
+                  onChange={(e) =>
+                    setSchoolName(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Nom de l'école"
+                />
+
+                <label>
+                  Adresse
+                </label>
+
+                <input
+                  value={schoolAddress}
+                  onChange={(e) =>
+                    setSchoolAddress(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Adresse"
+                />
+
+                <label>
+                  Ville
+                </label>
+
+                <input
+                  value={schoolCity}
+                  onChange={(e) =>
+                    setSchoolCity(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Dakar"
+                />
+
+                <label>
+                  Téléphone
+                </label>
+
+                <input
+                  value={schoolPhone}
+                  onChange={(e) =>
+                    setSchoolPhone(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Téléphone"
+                />
+
+                <label>
+                  E-mail
                 </label>
 
                 <input
                   type="email"
-                  placeholder="professeur@email.com"
-                  value={
-                    teacherForm.email
-                  }
+                  value={schoolEmail}
                   onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      email:
-                        e.target.value,
-                    })
+                    setSchoolEmail(
+                      e.target.value
+                    )
                   }
-                  required
+                  placeholder="E-mail"
                 />
-              </>
+
+                <button
+                  onClick={createSchool}
+                  disabled={savingSchool}
+                >
+                  {savingSchool
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer"}
+                </button>
+
+              </div>
             )}
 
-            <label>
-              Téléphone
-            </label>
+            <h3>
+              Écoles enregistrées
+            </h3>
 
-            <input
-              type="text"
-              placeholder="77 000 00 00"
-              value={
-                teacherForm.phone
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  phone:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              🏫 École où il enseigne
-            </label>
-
-            <select
-              value={
-                teacherForm.school_id
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  school_id:
-                    e.target.value,
-                })
-              }
-              required
-            >
-              <option value="">
-                Choisir une école
-              </option>
-
-              {schools.map(
-                (school) => (
-                  <option
-                    key={school.id}
-                    value={school.id}
-                  >
+            {schools.length === 0 ? (
+              <p>
+                Aucune école.
+              </p>
+            ) : (
+              schools.map((school) => (
+                <div
+                  className="stat"
+                  key={school.id}
+                >
+                  <strong>
                     {school.name}
-                  </option>
-                )
-              )}
-            </select>
+                  </strong>
 
-            <button type="submit">
-              {editingTeacher
-                ? "💾 Enregistrer"
-                : "Créer le professeur"}
-            </button>
-          </form>
+                  <span>
+                    {school.city || ""}
+                    {" • "}
+                    {school.phone || "Sans téléphone"}
+                  </span>
+                </div>
+              ))
+            )}
+
+          </div>
         )}
 
-        <div className="grid">
-          {teachers.map(
-            (teacher) => (
+        {/* =====================
+            PROFESSEURS
+        ===================== */}
+
+        {activeSection === "teachers" && (
+          <div className="notice">
+
+            <h2>
+              👨‍🏫 Gestion des professeurs
+            </h2>
+
+            <p>
+              {teachers.length} professeur(s)
+              enregistré(s).
+            </p>
+
+            {teachers.map((teacher) => (
               <div
                 className="stat"
                 key={teacher.id}
               >
+
                 <strong>
-                  👨‍🏫{" "}
-                  {teacher.full_name ||
-                    "Sans nom"}
+                  {teacher.full_name}
                 </strong>
 
                 <span>
-                  📱{" "}
-                  {teacher.phone ||
-                    "Téléphone non renseigné"}
-                </span>
-
-                <span>
-                  🏫{" "}
+                  {teacher.phone || "Téléphone non renseigné"}
+                  {" • "}
                   {getSchoolName(
                     teacher.school_id
                   )}
+                  {" • "}
+                  {teacher.role === "teacher"
+                    ? "Actif"
+                    : "Désactivé"}
                 </span>
-
-                <button
-                  onClick={() =>
-                    startEditTeacher(
-                      teacher
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
 
                 <button
                   onClick={() =>
@@ -901,449 +1206,656 @@ export default function AdminDashboard({ session, onLogout }) {
                     )
                   }
                 >
-                  🚫 Désactiver
+                  {teacher.role === "teacher"
+                    ? "Désactiver"
+                    : "Réactiver"}
                 </button>
+
               </div>
-            )
-          )}
-        </div>
+            ))}
 
-        {/* ECOLES */}
-
-        <div className="notice">
-          <h2>
-            🏫 Gestion des écoles
-          </h2>
-
-          <button
-            onClick={() => {
-              setEditingSchool(null);
-
-              setSchoolForm({
-                name: "",
-                address: "",
-                city: "",
-                phone: "",
-                email: "",
-              });
-
-              setShowSchoolForm(
-                !showSchoolForm
-              );
-            }}
-          >
-            ➕ Nouvelle école
-          </button>
-        </div>
-
-        {showSchoolForm && (
-          <form
-            className="notice"
-            onSubmit={saveSchool}
-          >
-            <h3>
-              {editingSchool
-                ? "Modifier l'école"
-                : "Nouvelle école"}
-            </h3>
-
-            <label>
-              Nom de l'école
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : École Connectée"
-              value={schoolForm.name}
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Adresse
-            </label>
-
-            <input
-              type="text"
-              value={
-                schoolForm.address
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  address:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              Ville
-            </label>
-
-            <input
-              type="text"
-              value={schoolForm.city}
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  city:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              Téléphone
-            </label>
-
-            <input
-              type="text"
-              value={
-                schoolForm.phone
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  phone:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              E-mail
-            </label>
-
-            <input
-              type="email"
-              value={
-                schoolForm.email
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  email:
-                    e.target.value,
-                })
-              }
-            />
-
-            <button type="submit">
-              {editingSchool
-                ? "💾 Enregistrer"
-                : "Créer l'école"}
-            </button>
-          </form>
+          </div>
         )}
 
-        <div className="grid">
-          {schools.map(
-            (school) => (
-              <div
-                className="stat"
-                key={school.id}
-              >
-                <strong>
-                  🏫 {school.name}
-                </strong>
+        {/* =====================
+            ÉLÈVES
+        ===================== */}
 
-                <span>
-                  {school.city ||
-                    "Ville non renseignée"}
-                </span>
+        {activeSection === "students" && (
+          <div className="notice">
 
-                <button
-                  onClick={() =>
-                    startEditSchool(
-                      school
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
+            <h2>
+              👨‍🎓 Gestion des élèves
+            </h2>
 
-                <button
-                  onClick={() =>
-                    deleteSchool(
-                      school
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            )
-          )}
-        </div>
-
-        {/* CLASSES */}
-
-        <div className="notice">
-          <h2>
-            📚 Gestion des classes
-          </h2>
-
-          <button
-            onClick={() => {
-              setEditingClass(null);
-
-              setClassForm({
-                school_id: "",
-                name: "",
-                level: "",
-              });
-
-              setShowClassForm(
-                !showClassForm
-              );
-            }}
-          >
-            ➕ Nouvelle classe
-          </button>
-        </div>
-
-        {showClassForm && (
-          <form
-            className="notice"
-            onSubmit={saveClass}
-          >
-            <h3>
-              {editingClass
-                ? "Modifier la classe"
-                : "Nouvelle classe"}
-            </h3>
-
-            <label>
-              École
-            </label>
-
-            <select
-              value={
-                classForm.school_id
-              }
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  school_id:
-                    e.target.value,
-                })
-              }
-              required
-            >
-              <option value="">
-                Choisir une école
-              </option>
-
-              {schools.map(
-                (school) => (
-                  <option
-                    key={school.id}
-                    value={school.id}
-                  >
-                    {school.name}
-                  </option>
+            <button
+              onClick={() =>
+                setShowStudentForm(
+                  !showStudentForm
                 )
-              )}
-            </select>
-
-            <label>
-              Nom de la classe
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : 4ème A"
-              value={
-                classForm.name
               }
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Niveau
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : 4ème"
-              value={
-                classForm.level
-              }
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  level:
-                    e.target.value,
-                })
-              }
-            />
-
-            <button type="submit">
-              {editingClass
-                ? "💾 Enregistrer"
-                : "Créer la classe"}
+            >
+              {showStudentForm
+                ? "Fermer"
+                : "+ Nouvel élève"}
             </button>
-          </form>
+
+            {showStudentForm && (
+              <div className="card">
+
+                <h3>
+                  Nouvel élève
+                </h3>
+
+                <label>
+                  Prénom
+                </label>
+
+                <input
+                  value={studentFirstName}
+                  onChange={(e) =>
+                    setStudentFirstName(
+                      e.target.value
+                    )
+                  }
+                />
+
+                <label>
+                  Nom
+                </label>
+
+                <input
+                  value={studentLastName}
+                  onChange={(e) =>
+                    setStudentLastName(
+                      e.target.value
+                    )
+                  }
+                />
+
+                <label>
+                  Code élève
+                </label>
+
+                <input
+                  value={studentCode}
+                  onChange={(e) =>
+                    setStudentCode(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex : EC-001"
+                />
+
+                <label>
+                  École
+                </label>
+
+                <select
+                  value={studentSchoolId}
+                  onChange={(e) => {
+                    setStudentSchoolId(
+                      e.target.value
+                    );
+                    setStudentClassId("");
+                  }}
+                >
+                  <option value="">
+                    Choisir une école
+                  </option>
+
+                  {schools.map((school) => (
+                    <option
+                      key={school.id}
+                      value={school.id}
+                    >
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+
+                <label>
+                  Classe
+                </label>
+
+                <select
+                  value={studentClassId}
+                  onChange={(e) =>
+                    setStudentClassId(
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Choisir une classe
+                  </option>
+
+                  {classes
+                    .filter(
+                      (item) =>
+                        !studentSchoolId ||
+                        item.school_id ===
+                          studentSchoolId
+                    )
+                    .map((item) => (
+                      <option
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+
+                <button
+                  onClick={createStudent}
+                  disabled={savingStudent}
+                >
+                  {savingStudent
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer l'élève"}
+                </button>
+
+              </div>
+            )}
+
+            <h3>
+              Élèves enregistrés
+            </h3>
+
+            {students.length === 0 ? (
+              <p>
+                Aucun élève.
+              </p>
+            ) : (
+              students.map((student) => (
+                <div
+                  className="stat"
+                  key={student.id}
+                >
+
+                  <strong>
+                    {student.first_name}{" "}
+                    {student.last_name}
+                  </strong>
+
+                  <span>
+                    {getSchoolName(
+                      student.school_id
+                    )}
+                    {" • "}
+                    {getClassName(
+                      student.class_id
+                    )}
+                    {" • "}
+                    {student.active === false
+                      ? "Désactivé"
+                      : "Actif"}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      toggleStudent(
+                        student
+                      )
+                    }
+                  >
+                    {student.active === false
+                      ? "Réactiver"
+                      : "Désactiver"}
+                  </button>
+
+                </div>
+              ))
+            )}
+
+          </div>
         )}
 
-        <div className="grid">
-          {classes.map(
-            (classItem) => (
+        {/* =====================
+            CLASSES
+        ===================== */}
+
+        {activeSection === "classes" && (
+          <div className="notice">
+
+            <h2>
+              🏷️ Gestion des classes
+            </h2>
+
+            <button
+              onClick={() =>
+                setShowClassForm(
+                  !showClassForm
+                )
+              }
+            >
+              {showClassForm
+                ? "Fermer"
+                : "+ Ajouter une classe"}
+            </button>
+
+            {showClassForm && (
+              <div className="card">
+
+                <h3>
+                  Nouvelle classe
+                </h3>
+
+                <label>
+                  École
+                </label>
+
+                <select
+                  value={selectedSchoolId}
+                  onChange={(e) =>
+                    setSelectedSchoolId(
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Choisir une école
+                  </option>
+
+                  {schools.map((school) => (
+                    <option
+                      key={school.id}
+                      value={school.id}
+                    >
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+
+                <label>
+                  Nom de la classe
+                </label>
+
+                <input
+                  value={className}
+                  onChange={(e) =>
+                    setClassName(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex : 4ème A"
+                />
+
+                <label>
+                  Niveau
+                </label>
+
+                <input
+                  value={classLevel}
+                  onChange={(e) =>
+                    setClassLevel(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex : Collège"
+                />
+
+                <button
+                  onClick={createClass}
+                  disabled={savingClass}
+                >
+                  {savingClass
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer"}
+                </button>
+
+              </div>
+            )}
+
+            {classes.map((item) => (
               <div
                 className="stat"
-                key={classItem.id}
+                key={item.id}
               >
                 <strong>
-                  📚 {classItem.name}
+                  {item.name}
                 </strong>
 
                 <span>
-                  Niveau :{" "}
-                  {classItem.level ||
-                    "Non renseigné"}
-                </span>
-
-                <span>
-                  🏫{" "}
+                  {item.level || ""}
+                  {" • "}
                   {getSchoolName(
-                    classItem.school_id
+                    item.school_id
                   )}
                 </span>
-
-                <button
-                  onClick={() =>
-                    startEditClass(
-                      classItem
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteClass(
-                      classItem
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
               </div>
-            )
-          )}
-        </div>
+            ))}
 
-        {/* MATIERES */}
-
-        <div className="notice">
-          <h2>
-            📖 Gestion des matières
-          </h2>
-
-          <button
-            onClick={() => {
-              setEditingSubject(null);
-
-              setSubjectForm({
-                name: "",
-              });
-
-              setShowSubjectForm(
-                !showSubjectForm
-              );
-            }}
-          >
-            ➕ Nouvelle matière
-          </button>
-        </div>
-
-        {showSubjectForm && (
-          <form
-            className="notice"
-            onSubmit={saveSubject}
-          >
-            <h3>
-              {editingSubject
-                ? "Modifier la matière"
-                : "Nouvelle matière"}
-            </h3>
-
-            <label>
-              Nom de la matière
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Mathématiques"
-              value={
-                subjectForm.name
-              }
-              onChange={(e) =>
-                setSubjectForm({
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <button type="submit">
-              {editingSubject
-                ? "💾 Enregistrer"
-                : "Créer la matière"}
-            </button>
-          </form>
+          </div>
         )}
 
-        <div className="grid">
-          {subjects.map(
-            (subject) => (
+        {/* =====================
+            MATIÈRES
+        ===================== */}
+
+        {activeSection === "subjects" && (
+          <div className="notice">
+
+            <h2>
+              📚 Gestion des matières
+            </h2>
+
+            <button
+              onClick={() =>
+                setShowSubjectForm(
+                  !showSubjectForm
+                )
+              }
+            >
+              {showSubjectForm
+                ? "Fermer"
+                : "+ Ajouter une matière"}
+            </button>
+
+            {showSubjectForm && (
+              <div className="card">
+
+                <h3>
+                  Nouvelle matière
+                </h3>
+
+                <label>
+                  Nom
+                </label>
+
+                <input
+                  value={subjectName}
+                  onChange={(e) =>
+                    setSubjectName(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex : Mathématiques"
+                />
+
+                <button
+                  onClick={createSubject}
+                  disabled={savingSubject}
+                >
+                  {savingSubject
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer"}
+                </button>
+
+              </div>
+            )}
+
+            {subjects.map((subject) => (
               <div
                 className="stat"
                 key={subject.id}
               >
                 <strong>
-                  📖 {subject.name}
+                  {subject.name}
                 </strong>
 
-                <button
-                  onClick={() =>
-                    startEditSubject(
-                      subject
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteSubject(
-                      subject
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
+                <span>
+                  ID : {subject.id}
+                </span>
               </div>
-            )
-          )}
-        </div>
+            ))}
+
+          </div>
+        )}
+
+        {/* =====================
+            DOCUMENTS
+        ===================== */}
+
+        {activeSection === "documents" && (
+          <div className="notice">
+
+            <h2>
+              📖 Tous les documents
+            </h2>
+
+            <p>
+              Leçons, cours, exercices,
+              devoirs et interrogations
+              publiés par les professeurs.
+            </p>
+
+            {documents.length === 0 ? (
+              <p>
+                Aucun document.
+              </p>
+            ) : (
+              documents.map((document) => (
+                <div
+                  className="stat"
+                  key={document.id}
+                >
+
+                  <strong>
+                    {document.title}
+                  </strong>
+
+                  <span>
+                    {document.document_type}
+                    {" • "}
+                    {getClassName(
+                      document.class_id
+                    )}
+                    {" • "}
+                    {getSubjectName(
+                      document.subject_id
+                    )}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      window.open(
+                        document.file_url,
+                        "_blank"
+                      )
+                    }
+                  >
+                    📄 Ouvrir
+                  </button>
+
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      deleteDocument(
+                        document.id
+                      )
+                    }
+                  >
+                    🗑️ Supprimer
+                  </button>
+
+                </div>
+              ))
+            )}
+
+          </div>
+        )}
+
+        {/* =====================
+            EXERCICES
+        ===================== */}
+
+        {activeSection === "exercises" && (
+          <div className="notice">
+
+            <h2>
+              📝 Tous les exercices
+            </h2>
+
+            <p>
+              L'administrateur peut
+              consulter tous les exercices
+              créés par les professeurs.
+            </p>
+
+            {exercises.length === 0 ? (
+              <p>
+                Aucun exercice.
+              </p>
+            ) : (
+              exercises.map((exercise) => (
+                <div
+                  className="stat"
+                  key={exercise.id}
+                >
+
+                  <strong>
+                    {exercise.title}
+                  </strong>
+
+                  <span>
+                    {getClassName(
+                      exercise.class_id
+                    )}
+                    {" • "}
+                    {getSubjectName(
+                      exercise.subject_id
+                    )}
+                    {" • "}
+                    {exercise.duration_minutes}
+                    {" min"}
+                    {" • "}
+                    {exercise.published
+                      ? "Publié"
+                      : "Brouillon"}
+                  </span>
+
+                  <p>
+                    {exercise.description}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Consignes :
+                    </strong>{" "}
+                    {exercise.instructions}
+                  </p>
+
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      deleteExercise(
+                        exercise.id
+                      )
+                    }
+                  >
+                    🗑️ Supprimer
+                  </button>
+
+                </div>
+              ))
+            )}
+
+          </div>
+        )}
+
+        {/* =====================
+            PRÉSENCES
+        ===================== */}
+
+        {activeSection === "attendance" && (
+          <div className="notice">
+
+            <h2>
+              📊 Présences
+            </h2>
+
+            <p>
+              Vue globale des présences
+              enregistrées dans l'application.
+            </p>
+
+            {attendance.length === 0 ? (
+              <p>
+                Aucun enregistrement.
+              </p>
+            ) : (
+              attendance
+                .slice(0, 100)
+                .map((item) => (
+                  <div
+                    className="stat"
+                    key={item.id}
+                  >
+
+                    <strong>
+                      Élève :{" "}
+                      {item.student_id}
+                    </strong>
+
+                    <span>
+                      Date : {item.date}
+                      {" • "}
+                      Statut : {item.status}
+                    </span>
+
+                    <span>
+                      Arrivée :{" "}
+                      {item.arrival_time || "-"}
+                      {" • "}
+                      Départ :{" "}
+                      {item.departure_time || "-"}
+                    </span>
+
+                  </div>
+                ))
+            )}
+
+          </div>
+        )}
+
+        {/* =====================
+            NOTIFICATIONS
+        ===================== */}
+
+        {activeSection === "notifications" && (
+          <div className="notice">
+
+            <h2>
+              🔔 Notifications
+            </h2>
+
+            {notifications.length === 0 ? (
+              <p>
+                Aucune notification.
+              </p>
+            ) : (
+              notifications
+                .slice(0, 100)
+                .map((item) => (
+                  <div
+                    className="stat"
+                    key={item.id}
+                  >
+
+                    <strong>
+                      {item.title}
+                    </strong>
+
+                    <span>
+                      {item.type}
+                      {" • "}
+                      {item.read
+                        ? "Lue"
+                        : "Non lue"}
+                    </span>
+
+                    <p>
+                      {item.message}
+                    </p>
+
+                  </div>
+                ))
+            )}
+
+          </div>
+        )}
 
       </section>
     </main>

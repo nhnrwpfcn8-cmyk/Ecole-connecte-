@@ -43,10 +43,11 @@ export default function AdminDashboard({ session, onLogout }) {
   const [showSubjectForm, setShowSubjectForm] = useState(false);
 
   const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-  });
+  full_name: "",
+  email: "",
+  phone: "",
+  school_id: "",
+});
 
   const [schoolForm, setSchoolForm] = useState({
     name: "",
@@ -1103,6 +1104,31 @@ export default function AdminDashboard({ session, onLogout }) {
                 />
               </>
             )}
+            <label>École</label>
+
+<select
+  value={teacherForm.school_id}
+  onChange={(e) =>
+    setTeacherForm({
+      ...teacherForm,
+      school_id: e.target.value,
+    })
+  }
+  required
+>
+  <option value="">
+    Choisir une école
+  </option>
+
+  {schools.map((school) => (
+    <option
+      key={school.id}
+      value={school.id}
+    >
+      {school.name}
+    </option>
+  ))}
+</select>
 
             <label>Téléphone</label>
 

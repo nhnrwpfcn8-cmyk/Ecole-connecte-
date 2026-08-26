@@ -1,309 +1,332 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "./src/lib/supabase";
+import React, { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
 
-export default function AdminDashboard({ session, onLogout }) {
-  const [stats, setStats] = useState({
-    teachers: 0,
-    students: 0,
-    parents: 0,
-    schools: 0,
-    classes: 0,
-    subjects: 0,
-    documents: 0,
-    exercises: 0,
-    notifications: 0,
-  });
+const EMPTY_STATS = {
+  classes: 0,
+  students: 0,
+  subjects: 0,
+  documents: 0,
+  attendanceToday: 0,
+};
 
-  const [teachers, setTeachers] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [parents, setParents] = useState([]);
-  const [parentStudents, setParentStudents] = useState([]);
-  const [schools, setSchools] = useState([]);
+export default function AdminDashboard() {
+  const [profile, setProfile] = useState(null);
+
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [students, setStudents] = useState([]);
   const [documents, setDocuments] = useState([]);
-  const [exercises, setExercises] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+
+  const [stats, setStats] = useState(EMPTY_STATS);
 
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-
-  // 👑 CONTRÔLE TOTAL ADMIN
-  const [adminDocuments, setAdminDocuments] = useState([]);
-  const [adminExercises, setAdminExercises] = useState([]);
-  const [adminAttendance, setAdminAttendance] = useState([]);
-  const [adminNotifications, setAdminNotifications] = useState([]);
-  const [adminControlLoading, setAdminControlLoading] = useState(false);
-  const [adminControlTab, setAdminControlTab] = useState("documents");
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
   const [activeSection, setActiveSection] = useState("dashboard");
 
-  // FORMULAIRES
-  const [showTeacherForm, setShowTeacherForm] = useState(false);
-  const [showStudentForm, setShowStudentForm] = useState(false);
-  const [showSchoolForm, setShowSchoolForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  // ---------------------------------------------------------
+  // UTILITAIRES
+  // ---------------------------------------------------------
 
-  const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    school_id: "",
-  });
-
-  const [studentForm, setStudentForm] = useState({
-    school_id: "",
-    class_id: "",
-    first_name: "",
-    last_name: "",
-    student_code: "",
-    photo_url: "",
-    active: true,
-    parent_id: "",
-    relationship: "Parent",
-  });
-
-  const [schoolForm, setSchoolForm] = useState({
-    name: "",
-    address: "",
-    city: "",
-    phone: "",
-    email: "",
-  });
-
-  const [classForm, setClassForm] = useState({
-    school_id: "",
-    name: "",
-    level: "",
-  });
-
-  const [subjectForm, setSubjectForm] = useState({
-    name: "",
-  });
-
-  // ÉLÉMENTS EN COURS DE MODIFICATION
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editingSchool, setEditingSchool] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editingSubject, setEditingSubject] = useState(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // =========================================================
-  // CHARGEMENT DES DONNÉES
-  // =========================================================
-
-  async function loadData() {
-    setLoading(true);
-    setMessage("");
+  function formatDate(date) {
+    if (!date) return "—";
 
     try {
-      const [
-        teachersResult,
-        studentsResult,
-        parentsResult,
-        parentStudentsResult,
-        schoolsResult,
-        classesResult,
-        subjectsResult,
-        documentsResult,
-        exercisesResult,
-        questionsResult,
-        notificationsResult,
-      ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, full_name, phone, role, school_id")
-          .eq("role", "teacher")
-          .order("full_name"),
-
-        supabase
-          .from("students")
-          .select(
-            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
-          )
-          .order("last_name"),
-
-        supabase
-          .from("profiles")
-          .select("id, full_name, phone, role")
-          .eq("role", "parent")
-          .order("full_name"),
-
-        supabase
-          .from("parent_students")
-          .select(
-            "parent_id, student_id, relationship, created_at"
-          ),
-
-        supabase
-          .from("schools")
-          .select(
-            "id, name, address, city, phone, email"
-          )
-          .order("name"),
-
-        supabase
-          .from("classes")
-          .select(
-            "id, school_id, name, level"
-          )
-          .order("name"),
-
-        supabase
-          .from("subjects")
-          .select("id, name")
-          .order("name"),
-
-        supabase
-          .from("documents")
-          .select(
-            "id, teacher_id, class_id, subject_id, title, description, document_type, file_url, created_at"
-          )
-          .order("created_at", {
-            ascending: false,
-          }),
-
-        supabase
-          .from("exercises")
-          .select(
-            "id, teacher_id, school_id, class_id, subject_id, title, description, instructions, duration_minutes, published, created_at"
-          )
-          .order("created_at", {
-            ascending: false,
-          }),
-
-        supabase
-          .from("exercise_questions")
-          .select(
-            "id, exercise_id, question, question_type, options, correct_answer, points, position, created_at"
-          )
-          .order("position"),
-
-        supabase
-          .from("notifications")
-          .select(
-            "id, recipient_id, student_id, type, title, message, read, created_at"
-          )
-          .order("created_at", {
-            ascending: false,
-          }),
-      ]);
-
-      const requiredErrors = [
-        teachersResult.error,
-        schoolsResult.error,
-        classesResult.error,
-        subjectsResult.error,
-        studentsResult.error,
-      ].filter(Boolean);
-
-      if (requiredErrors.length > 0) {
-        throw requiredErrors[0];
-      }
-
-      if (parentsResult.error) {
-        console.warn(
-          "Impossible de charger les parents :",
-          parentsResult.error.message
-        );
-      }
-
-      if (parentStudentsResult.error) {
-        console.warn(
-          "Impossible de charger les relations parent/élève :",
-          parentStudentsResult.error.message
-        );
-      }
-
-      const optionalErrors = [
-        documentsResult.error,
-        exercisesResult.error,
-        questionsResult.error,
-        notificationsResult.error,
-      ].filter(Boolean);
-
-      if (optionalErrors.length > 0) {
-        console.warn(
-          "Certaines données secondaires n'ont pas pu être chargées."
-        );
-
-        optionalErrors.forEach((error) =>
-          console.warn(error.message)
-        );
-      }
-
-      const teacherData = teachersResult.data || [];
-      const studentData = studentsResult.data || [];
-      const parentData = parentsResult.data || [];
-      const parentStudentData =
-        parentStudentsResult.data || [];
-      const schoolData = schoolsResult.data || [];
-      const classData = classesResult.data || [];
-      const subjectData = subjectsResult.data || [];
-      const documentData = documentsResult.data || [];
-      const exerciseData = exercisesResult.data || [];
-      const questionData = questionsResult.data || [];
-      const notificationData =
-        notificationsResult.data || [];
-
-      setTeachers(teacherData);
-      setStudents(studentData);
-      setParents(parentData);
-      setParentStudents(parentStudentData);
-      setSchools(schoolData);
-      setClasses(classData);
-      setSubjects(subjectData);
-      setDocuments(documentData);
-      setExercises(exerciseData);
-      setQuestions(questionData);
-      setNotifications(notificationData);
-
-      setStats({
-        teachers: teacherData.length,
-        students: studentData.length,
-        parents: parentData.length,
-        schools: schoolData.length,
-        classes: classData.length,
-        subjects: subjectData.length,
-        documents: documentData.length,
-        exercises: exerciseData.length,
-        notifications: notificationData.length,
-      });
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "Impossible de charger les données : " +
-          (error?.message || "Erreur inconnue")
-      );
-    } finally {
-      setLoading(false);
+      return new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(new Date(date));
+    } catch {
+      return "—";
     }
   }
 
-  // =========================================================
-  // CONTRÔLE TOTAL
-  // =========================================================
-
-  async function loadAdminControlData() {
-    setAdminControlLoading(true);
+  function formatTime(date) {
+    if (!date) return "—";
 
     try {
-      const [
-        documentsResult,
-        exercisesResult,
-        attendanceResult,
-        notificationsResult,
-      ] = await Promise.all([
-        supabase
-          .from("documents")
-          .select(`
+      return new Intl.DateTimeFormat("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(date));
+    } catch {
+      return "—";
+    }
+  }
+
+  function getTodayStart() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today.toISOString();
+  }
+
+  // ---------------------------------------------------------
+  // RÉCUPÉRER LE PROFIL ADMIN
+  // ---------------------------------------------------------
+
+  async function loadProfile(userId) {
+    const { data, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone, role, school_id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      throw new Error(
+        `Impossible de récupérer le profil : ${profileError.message}`
+      );
+    }
+
+    setProfile(data);
+    return data;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGER LES CLASSES
+  // ---------------------------------------------------------
+
+  async function loadClasses(schoolId) {
+    let query = supabase
+      .from("classes")
+      .select("id, name, level, school_id, created_at")
+      .order("name", { ascending: true });
+
+    if (schoolId) {
+      query = query.eq("school_id", schoolId);
+    }
+
+    const { data, error: classesError } = await query;
+
+    if (classesError) {
+      throw new Error(
+        `Erreur lors du chargement des classes : ${classesError.message}`
+      );
+    }
+
+    const result = data || [];
+    setClasses(result);
+
+    return result;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGER LES MATIÈRES
+  // ---------------------------------------------------------
+
+  async function loadSubjects() {
+    const { data, error: subjectsError } = await supabase
+      .from("subjects")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (subjectsError) {
+      console.warn(
+        "Impossible de charger les matières :",
+        subjectsError.message
+      );
+
+      setSubjects([]);
+      return [];
+    }
+
+    const result = data || [];
+    setSubjects(result);
+
+    return result;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGER LES ÉLÈVES
+  // ---------------------------------------------------------
+
+  async function loadStudents(schoolId) {
+    let query = supabase
+      .from("students")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    /*
+      On filtre par school_id seulement si le champ existe
+      dans ton schéma et si l'école est connue.
+    */
+
+    if (schoolId) {
+      query = query.eq("school_id", schoolId);
+    }
+
+    const { data, error: studentsError } = await query;
+
+    if (studentsError) {
+      console.warn(
+        "Impossible de charger les élèves :",
+        studentsError.message
+      );
+
+      setStudents([]);
+      return [];
+    }
+
+    const result = data || [];
+    setStudents(result);
+
+    return result;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGER LES DOCUMENTS
+  // ---------------------------------------------------------
+
+  async function loadDocuments(schoolId) {
+    /*
+      IMPORTANT :
+      documents.teacher_id référence profiles.id.
+      documents.class_id référence classes.id (UUID).
+      documents.subject_id référence subjects.id (bigint).
+    */
+
+    let query = supabase
+      .from("documents")
+      .select(
+        `
+          id,
+          teacher_id,
+          class_id,
+          subject_id,
+          title,
+          description,
+          document_type,
+          file_url,
+          created_at
+        `
+      )
+      .order("created_at", { ascending: false });
+
+    /*
+      Il n'y a pas forcément school_id dans documents.
+      On ne filtre donc PAS directement par school_id.
+    */
+
+    const { data, error: documentsError } = await query;
+
+    if (documentsError) {
+      console.warn(
+        "Impossible de charger les documents :",
+        documentsError.message
+      );
+
+      setDocuments([]);
+      return [];
+    }
+
+    let result = data || [];
+
+    /*
+      Si une école est sélectionnée, on garde seulement les
+      documents appartenant aux classes de cette école.
+    */
+    if (schoolId && classes.length > 0) {
+      const classIds = new Set(
+        classes
+          .filter((item) => item.school_id === schoolId)
+          .map((item) => item.id)
+      );
+
+      result = result.filter((document) =>
+        classIds.has(document.class_id)
+      );
+    }
+
+    setDocuments(result);
+
+    return result;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGER LES PRÉSENCES
+  // ---------------------------------------------------------
+
+  async function loadAttendance() {
+    const todayStart = getTodayStart();
+
+    /*
+      On utilise select("*") pour éviter de supposer
+      des noms de colonnes qui pourraient différer.
+    */
+
+    const { data, error: attendanceError } = await supabase
+      .from("attendance")
+      .select("*")
+      .gte("created_at", todayStart)
+      .order("created_at", { ascending: false });
+
+    if (attendanceError) {
+      console.warn(
+        "Impossible de charger les présences :",
+        attendanceError.message
+      );
+
+      setAttendance([]);
+      return [];
+    }
+
+    const result = data || [];
+    setAttendance(result);
+
+    return result;
+  }
+
+  // ---------------------------------------------------------
+  // CHARGEMENT GLOBAL
+  // ---------------------------------------------------------
+
+  async function loadDashboard(showRefresh = false) {
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      if (!user) {
+        throw new Error("Aucun utilisateur connecté.");
+      }
+
+      const currentProfile = await loadProfile(user.id);
+
+      const schoolId = currentProfile?.school_id || null;
+
+      /*
+        On charge d'abord les classes.
+        Les documents pourront ensuite utiliser leurs UUID.
+      */
+      const loadedClasses = await loadClasses(schoolId);
+
+      await loadSubjects();
+      await loadStudents(schoolId);
+
+      /*
+        Documents : filtrage par les classes de l'école.
+      */
+      let loadedDocuments = [];
+
+      const { data: docs, error: docsError } = await supabase
+        .from("documents")
+        .select(
+          `
             id,
             teacher_id,
             class_id,
@@ -313,3350 +336,1338 @@ export default function AdminDashboard({ session, onLogout }) {
             document_type,
             file_url,
             created_at
-          `)
-          .order("created_at", {
-            ascending: false,
-          }),
+          `
+        )
+        .order("created_at", { ascending: false });
 
-        supabase
-          .from("exercises")
-          .select(`
-            id,
-            teacher_id,
-            school_id,
-            class_id,
-            subject_id,
-            title,
-            description,
-            instructions,
-            duration_minutes,
-            published,
-            created_at
-          `)
-          .order("created_at", {
-            ascending: false,
-          }),
+      if (!docsError) {
+        loadedDocuments = docs || [];
 
-        supabase
-          .from("attendance")
-          .select(`
-            id,
-            student_id,
-            date,
-            arrival_time,
-            departure_time,
-            status,
-            recorded_by,
-            created_at
-          `)
-          .order("date", {
-            ascending: false,
-          }),
+        if (schoolId && loadedClasses.length > 0) {
+          const classIds = new Set(
+            loadedClasses
+              .filter((item) => item.school_id === schoolId)
+              .map((item) => item.id)
+          );
 
-        supabase
-          .from("notifications")
-          .select(`
-            id,
-            recipient_id,
-            student_id,
-            type,
-            title,
-            message,
-            read,
-            created_at
-          `)
-          .order("created_at", {
-            ascending: false,
-          }),
-      ]);
+          loadedDocuments = loadedDocuments.filter((document) =>
+            classIds.has(document.class_id)
+          );
+        }
 
-      if (documentsResult.error) {
-        console.error(
-          "Erreur documents :",
-          documentsResult.error
-        );
+        setDocuments(loadedDocuments);
+      } else {
+        console.warn("Documents :", docsError.message);
+        setDocuments([]);
       }
 
-      if (exercisesResult.error) {
-        console.error(
-          "Erreur exercices :",
-          exercisesResult.error
-        );
-      }
+      const loadedAttendance = await loadAttendance();
 
-      if (attendanceResult.error) {
-        console.error(
-          "Erreur présences :",
-          attendanceResult.error
-        );
-      }
+      setStats({
+        classes: loadedClasses.length,
+        students: students.length,
+        subjects: subjects.length,
+        documents: loadedDocuments.length,
+        attendanceToday: loadedAttendance.length,
+      });
+    } catch (err) {
+      console.error("AdminDashboard:", err);
 
-      if (notificationsResult.error) {
-        console.error(
-          "Erreur notifications :",
-          notificationsResult.error
-        );
-      }
-
-      setAdminDocuments(
-        documentsResult.data || []
-      );
-
-      setAdminExercises(
-        exercisesResult.data || []
-      );
-
-      setAdminAttendance(
-        attendanceResult.data || []
-      );
-
-      setAdminNotifications(
-        notificationsResult.data || []
-      );
-    } catch (error) {
-      console.error(
-        "Erreur contrôle total :",
-        error
+      setError(
+        err?.message ||
+          "Une erreur est survenue lors du chargement du tableau de bord."
       );
     } finally {
-      setAdminControlLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   }
 
-  // =========================================================
-  // PROFESSEURS
-  // =========================================================
+  // ---------------------------------------------------------
+  // CORRECTION : LES STATS SONT RECALCULÉES APRÈS CHARGEMENT
+  // ---------------------------------------------------------
 
-  async function createTeacher(e) {
-    e.preventDefault();
-    setMessage("");
+  useEffect(() => {
+    setStats({
+      classes: classes.length,
+      students: students.length,
+      subjects: subjects.length,
+      documents: documents.length,
+      attendanceToday: attendance.length,
+    });
+  }, [classes, students, subjects, documents, attendance]);
 
-    if (!teacherForm.school_id) {
-      setMessage(
-        "Veuillez sélectionner une école pour le professeur."
-      );
-      return;
-    }
+  // ---------------------------------------------------------
+  // INITIALISATION
+  // ---------------------------------------------------------
 
-    try {
-      const { data, error } =
-        await supabase.functions.invoke(
-          "create-user",
-          {
-            body: {
-              full_name:
-                teacherForm.full_name,
-              email: teacherForm.email,
-              phone: teacherForm.phone,
-              role: "teacher",
-              school_id:
-                teacherForm.school_id,
-            },
-          }
-        );
+  useEffect(() => {
+    loadDashboard(false);
 
-      if (error) throw error;
-
-      if (!data?.success) {
-        throw new Error(
-          data?.error ||
-            "Impossible de créer le professeur."
-        );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        loadDashboard(false);
       }
 
-      setMessage(
-        "Professeur créé avec succès."
-      );
+      if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setClasses([]);
+        setSubjects([]);
+        setStudents([]);
+        setDocuments([]);
+        setAttendance([]);
+      }
+    });
 
-      resetTeacherForm();
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
-      await loadData();
-    } catch (error) {
-      console.error(error);
+  // ---------------------------------------------------------
+  // CLASSES PAR NIVEAU
+  // ---------------------------------------------------------
 
-      setMessage(
-        "Erreur création professeur : " +
-          (error?.message ||
-            "Erreur inconnue")
-      );
-    }
-  }
+  const classesByLevel = useMemo(() => {
+    return classes.reduce((acc, item) => {
+      const level = item.level || "Autre";
 
-  async function updateTeacher(e) {
-    e.preventDefault();
-    setMessage("");
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name:
-            teacherForm.full_name,
-          phone: teacherForm.phone,
-          school_id:
-            teacherForm.school_id ||
-            null,
-        })
-        .eq("id", editingTeacher.id);
-
-      if (error) throw error;
-
-      setMessage(
-        "Professeur modifié avec succès."
-      );
-
-      resetTeacherForm();
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur modification professeur : " +
-          error.message
-      );
-    }
-  }
-
-  async function toggleTeacher(teacher) {
-    setMessage("");
-
-    try {
-      const newRole =
-        teacher.role === "teacher"
-          ? "inactive"
-          : "teacher";
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          role: newRole,
-        })
-        .eq("id", teacher.id);
-
-      if (error) throw error;
-
-      setMessage(
-        newRole === "teacher"
-          ? "Professeur réactivé."
-          : "Professeur désactivé."
-      );
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur : " + error.message
-      );
-    }
-  }
-
-  // =========================================================
-  // ÉLÈVES
-  // =========================================================
-
-  async function saveStudent(e) {
-    e.preventDefault();
-    setMessage("");
-
-    if (!studentForm.school_id) {
-      setMessage(
-        "Veuillez choisir une école."
-      );
-      return;
-    }
-
-    if (!studentForm.first_name.trim()) {
-      setMessage(
-        "Veuillez saisir le prénom de l'élève."
-      );
-      return;
-    }
-
-    if (!studentForm.last_name.trim()) {
-      setMessage(
-        "Veuillez saisir le nom de l'élève."
-      );
-      return;
-    }
-
-    try {
-      const values = {
-        school_id:
-          studentForm.school_id,
-        class_id:
-          studentForm.class_id ||
-          null,
-        first_name:
-          studentForm.first_name.trim(),
-        last_name:
-          studentForm.last_name.trim(),
-        student_code:
-          studentForm.student_code.trim() ||
-          null,
-        photo_url:
-          studentForm.photo_url.trim() ||
-          null,
-        active: studentForm.active,
-      };
-
-      let studentId = editingStudent?.id;
-
-      if (editingStudent) {
-        const { error } = await supabase
-          .from("students")
-          .update(values)
-          .eq("id", editingStudent.id);
-
-        if (error) throw error;
-
-        setMessage(
-          "Élève modifié avec succès."
-        );
-      } else {
-        const {
-          data,
-          error,
-        } = await supabase
-          .from("students")
-          .insert([values])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        studentId = data.id;
-
-        setMessage(
-          "Élève créé avec succès."
-        );
+      if (!acc[level]) {
+        acc[level] = [];
       }
 
-      // Gestion du parent
-      if (studentId) {
-        await supabase
-          .from("parent_students")
-          .delete()
-          .eq("student_id", studentId);
-
-        if (studentForm.parent_id) {
-          const {
-            error: parentError,
-          } = await supabase
-            .from("parent_students")
-            .insert([
-              {
-                parent_id:
-                  studentForm.parent_id,
-                student_id: studentId,
-                relationship:
-                  studentForm.relationship ||
-                  "Parent",
-              },
-            ]);
-
-          if (parentError) {
-            throw parentError;
-          }
-        }
-      }
-
-      resetStudentForm();
-
-      await loadData();
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "Erreur élève : " +
-          (error?.message ||
-            "Erreur inconnue")
-      );
-    }
-  }
-
-  async function toggleStudent(student) {
-    setMessage("");
-
-    try {
-      const { error } = await supabase
-        .from("students")
-        .update({
-          active: !student.active,
-        })
-        .eq("id", student.id);
-
-      if (error) throw error;
-
-      setMessage(
-        student.active
-          ? "Élève désactivé."
-          : "Élève réactivé."
-      );
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur statut élève : " +
-          error.message
-      );
-    }
-  }
-
-  async function deleteStudent(student) {
-    if (
-      !window.confirm(
-        "Voulez-vous vraiment supprimer cet élève ?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await supabase
-        .from("parent_students")
-        .delete()
-        .eq("student_id", student.id);
-
-      const { error } = await supabase
-        .from("students")
-        .delete()
-        .eq("id", student.id);
-
-      if (error) throw error;
-
-      setMessage(
-        "Élève supprimé avec succès."
-      );
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression élève : " +
-          error.message
-      );
-    }
-  }
-
-  // =========================================================
-  // ÉCOLES
-  // =========================================================
-
-  async function saveSchool(e) {
-    e.preventDefault();
-    setMessage("");
-
-    try {
-      if (editingSchool) {
-        const { error } = await supabase
-          .from("schools")
-          .update(schoolForm)
-          .eq("id", editingSchool.id);
-
-        if (error) throw error;
-
-        setMessage(
-          "École modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("schools")
-          .insert([schoolForm]);
-
-        if (error) throw error;
-
-        setMessage(
-          "École créée avec succès."
-        );
-      }
-
-      resetSchoolForm();
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur école : " +
-          error.message
-      );
-    }
-  }
-
-  async function deleteSchool(school) {
-    if (
-      !window.confirm(
-        "Voulez-vous vraiment supprimer cette école ?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("schools")
-        .delete()
-        .eq("id", school.id);
-
-      if (error) throw error;
-
-      setMessage("École supprimée.");
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression école : " +
-          error.message
-      );
-    }
-  }
-
-  // =========================================================
-  // CLASSES
-  // =========================================================
-
-  async function saveClass(e) {
-    e.preventDefault();
-    setMessage("");
-
-    if (!classForm.school_id) {
-      setMessage(
-        "Veuillez choisir une école."
-      );
-      return;
-    }
-
-    if (!classForm.name.trim()) {
-      setMessage(
-        "Veuillez saisir le nom de la classe."
-      );
-      return;
-    }
-
-    try {
-      const values = {
-        school_id:
-          classForm.school_id,
-        name: classForm.name.trim(),
-        level:
-          classForm.level.trim() ||
-          null,
-      };
-
-      if (editingClass) {
-        const { error } = await supabase
-          .from("classes")
-          .update(values)
-          .eq("id", editingClass.id);
-
-        if (error) throw error;
-
-        setMessage(
-          "Classe modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("classes")
-          .insert([values]);
-
-        if (error) throw error;
-
-        setMessage(
-          "Classe créée avec succès."
-        );
-      }
-
-      resetClassForm();
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur classe : " +
-          error.message
-      );
-    }
-  }
-
-  async function deleteClass(classItem) {
-    if (
-      !window.confirm(
-        "Voulez-vous vraiment supprimer cette classe ?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("classes")
-        .delete()
-        .eq("id", classItem.id);
-
-      if (error) throw error;
-
-      setMessage("Classe supprimée.");
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression classe : " +
-          error.message
-      );
-    }
-  }
-
-  // =========================================================
-  // MATIÈRES
-  // =========================================================
-
-  async function saveSubject(e) {
-    e.preventDefault();
-    setMessage("");
-
-    const name =
-      subjectForm.name.trim();
-
-    if (!name) {
-      setMessage(
-        "Veuillez saisir le nom de la matière."
-      );
-      return;
-    }
-
-    try {
-      if (editingSubject) {
-        const { error } = await supabase
-          .from("subjects")
-          .update({ name })
-          .eq("id", editingSubject.id);
-
-        if (error) throw error;
-
-        setMessage(
-          "Matière modifiée avec succès."
-        );
-      } else {
-        const { error } = await supabase
-          .from("subjects")
-          .insert([{ name }]);
-
-        if (error) throw error;
-
-        setMessage(
-          "Matière créée avec succès."
-        );
-      }
-
-      resetSubjectForm();
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur matière : " +
-          error.message
-      );
-    }
-  }
-
-  async function deleteSubject(subject) {
-    if (
-      !window.confirm(
-        "Voulez-vous vraiment supprimer cette matière ?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("subjects")
-        .delete()
-        .eq("id", subject.id);
-
-      if (error) throw error;
-
-      setMessage("Matière supprimée.");
-
-      await loadData();
-    } catch (error) {
-      setMessage(
-        "Erreur suppression matière : " +
-          error.message
-      );
-    }
-  }
-
-  // =========================================================
-  // RESET FORMS
-  // =========================================================
-
-  function resetTeacherForm() {
-    setTeacherForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      school_id: "",
-    });
-
-    setEditingTeacher(null);
-    setShowTeacherForm(false);
-  }
-
-  function resetStudentForm() {
-    setStudentForm({
-      school_id: "",
-      class_id: "",
-      first_name: "",
-      last_name: "",
-      student_code: "",
-      photo_url: "",
-      active: true,
-      parent_id: "",
-      relationship: "Parent",
-    });
-
-    setEditingStudent(null);
-    setShowStudentForm(false);
-  }
-
-  function resetSchoolForm() {
-    setSchoolForm({
-      name: "",
-      address: "",
-      city: "",
-      phone: "",
-      email: "",
-    });
-
-    setEditingSchool(null);
-    setShowSchoolForm(false);
-  }
-
-  function resetClassForm() {
-    setClassForm({
-      school_id: "",
-      name: "",
-      level: "",
-    });
-
-    setEditingClass(null);
-    setShowClassForm(false);
-  }
-
-  function resetSubjectForm() {
-    setSubjectForm({
-      name: "",
-    });
-
-    setEditingSubject(null);
-    setShowSubjectForm(false);
-  }
-
-  // =========================================================
-  // EDIT
-  // =========================================================
-
-  function startEditTeacher(teacher) {
-    setEditingTeacher(teacher);
-
-    setTeacherForm({
-      full_name:
-        teacher.full_name || "",
-      email: "",
-      phone:
-        teacher.phone || "",
-      school_id:
-        teacher.school_id || "",
-    });
-
-    setShowTeacherForm(true);
-  }
-
-  function startEditStudent(student) {
-    const relation =
-      parentStudents.find(
-        (item) =>
-          item.student_id ===
-          student.id
-      );
-
-    setEditingStudent(student);
-
-    setStudentForm({
-      school_id:
-        student.school_id || "",
-      class_id:
-        student.class_id || "",
-      first_name:
-        student.first_name || "",
-      last_name:
-        student.last_name || "",
-      student_code:
-        student.student_code || "",
-      photo_url:
-        student.photo_url || "",
-      active:
-        student.active !== false,
-      parent_id:
-        relation?.parent_id || "",
-      relationship:
-        relation?.relationship ||
-        "Parent",
-    });
-
-    setShowStudentForm(true);
-  }
-
-  function startEditSchool(school) {
-    setEditingSchool(school);
-
-    setSchoolForm({
-      name: school.name || "",
-      address:
-        school.address || "",
-      city: school.city || "",
-      phone:
-        school.phone || "",
-      email:
-        school.email || "",
-    });
-
-    setShowSchoolForm(true);
-  }
-
-  function startEditClass(classItem) {
-    setEditingClass(classItem);
-
-    setClassForm({
-      school_id:
-        classItem.school_id || "",
-      name:
-        classItem.name || "",
-      level:
-        classItem.level || "",
-    });
-
-    setShowClassForm(true);
-  }
-
-  function startEditSubject(subject) {
-    setEditingSubject(subject);
-
-    setSubjectForm({
-      name:
-        subject.name || "",
-    });
-
-    setShowSubjectForm(true);
-  }
-
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
-  function getSchoolName(schoolId) {
-    return (
-      schools.find(
-        (school) =>
-          school.id === schoolId
-      )?.name ||
-      "École inconnue"
-    );
-  }
-
-  function getClassName(classId) {
-    return (
-      classes.find(
-        (item) =>
-          item.id === classId
-      )?.name ||
-      "Classe inconnue"
-    );
-  }
-
-  function getSubjectName(subjectId) {
-    return (
-      subjects.find(
-        (item) =>
-          String(item.id) ===
-          String(subjectId)
-      )?.name ||
-      "Matière inconnue"
-    );
-  }
-
-  function getTeacherName(teacherId) {
-    return (
-      teachers.find(
-        (teacher) =>
-          teacher.id === teacherId
-      )?.full_name ||
-      "Professeur inconnu"
-    );
-  }
-
-  function getStudentName(studentId) {
-    const student =
-      students.find(
-        (item) =>
-          item.id === studentId
-      );
-
-    if (!student) {
-      return "Élève inconnu";
-    }
-
-    return (
-      `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim() ||
-      `Élève ${student.id}`
-    );
-  }
-
-  function getParentName(studentId) {
-    const relation =
-      parentStudents.find(
-        (item) =>
-          item.student_id ===
-          studentId
-      );
-
-    if (!relation) {
-      return "Aucun parent associé";
-    }
-
-    return (
-      parents.find(
-        (parent) =>
-          parent.id ===
-          relation.parent_id
-      )?.full_name ||
-      "Parent inconnu"
-    );
-  }
-
-  function getParentRelationship(studentId) {
-    const relation =
-      parentStudents.find(
-        (item) =>
-          item.student_id ===
-          studentId
-      );
-
-    return (
-      relation?.relationship ||
-      "Non renseigné"
-    );
-  }
-
-  function getExerciseName(exerciseId) {
-    return (
-      exercises.find(
-        (exercise) =>
-          exercise.id === exerciseId
-      )?.title ||
-      "Exercice inconnu"
-    );
-  }
-
-  function formatDate(date) {
-    if (!date) return "";
-
-    return new Date(
-      date
-    ).toLocaleString("fr-FR");
-  }
-
-  function openSection(section) {
-    setActiveSection(section);
-    setMessage("");
-
-    if (
-      section === "admin-control"
-    ) {
-      loadAdminControlData();
-    }
-  }
-
-  // =========================================================
-  // NAVIGATION
-  // =========================================================
-
-  function renderNavigation() {
-    return (
-      <div className="notice">
-        <h2>
-          🛠️ Administration
-        </h2>
-
-        <div className="grid">
-          <button
-            onClick={() =>
-              openSection("dashboard")
-            }
-          >
-            📊 Tableau de bord
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("teachers")
-            }
-          >
-            👨‍🏫 Professeurs
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("students")
-            }
-          >
-            👨‍🎓 Élèves
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("parents")
-            }
-          >
-            👪 Parents
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("schools")
-            }
-          >
-            🏫 Écoles
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("classes")
-            }
-          >
-            📚 Classes
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("subjects")
-            }
-          >
-            📖 Matières
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("documents")
-            }
-          >
-            📄 Leçons / Documents
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("exercises")
-            }
-          >
-            📝 Exercices
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("questions")
-            }
-          >
-            ❓ Questions
-          </button>
-
-          <button
-            onClick={() =>
-              openSection("notifications")
-            }
-          >
-            🔔 Notifications /
-            échanges
-          </button>
-
-          <button
-            onClick={() =>
-              openSection(
-                "admin-control"
-              )
-            }
-          >
-            👑 Contrôle total
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================================================
-  // DASHBOARD
-  // =========================================================
-
-  function renderDashboard() {
-    return (
-      <>
-        <div className="grid">
-          <div className="stat">
-            <strong>
-              {stats.teachers}
-            </strong>
-            <span>
-              Professeurs
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.students}
-            </strong>
-            <span>
-              Élèves
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.parents}
-            </strong>
-            <span>
-              Parents
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.schools}
-            </strong>
-            <span>
-              Écoles
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.classes}
-            </strong>
-            <span>
-              Classes
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.subjects}
-            </strong>
-            <span>
-              Matières
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.documents}
-            </strong>
-            <span>
-              Documents
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.exercises}
-            </strong>
-            <span>
-              Exercices
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {stats.notifications}
-            </strong>
-            <span>
-              Notifications
-            </span>
-          </div>
-        </div>
-
-        <div className="notice">
-          <h2>
-            🎯 Contrôle administrateur
-          </h2>
-
-          <p>
-            Depuis cet espace, vous
-            pouvez consulter les
-            principales données de
-            l'application École
-            Connectée.
-          </p>
-
-          <p>
-            L'administrateur peut
-            gérer les écoles, classes,
-            matières, professeurs et
-            élèves, et consulter les
-            documents, exercices,
-            questions et notifications.
-          </p>
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // PROFESSEURS
-  // =========================================================
-
-  function renderTeachers() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            👨‍🏫 Gestion des professeurs
-          </h2>
-
-          <button
-            onClick={() => {
-              if (showTeacherForm) {
-                resetTeacherForm();
-              } else {
-                setEditingTeacher(null);
-
-                setTeacherForm({
-                  full_name: "",
-                  email: "",
-                  phone: "",
-                  school_id: "",
-                });
-
-                setShowTeacherForm(
-                  true
-                );
-              }
-            }}
-          >
-            {showTeacherForm
-              ? "Fermer"
-              : "➕ Nouveau professeur"}
-          </button>
-        </div>
-
-        {showTeacherForm && (
-          <form
-            className="notice"
-            onSubmit={
-              editingTeacher
-                ? updateTeacher
-                : createTeacher
-            }
-          >
-            <h3>
-              {editingTeacher
-                ? "Modifier le professeur"
-                : "Nouveau professeur"}
-            </h3>
-
-            <label>
-              Nom complet
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Mamadou Diop"
-              value={
-                teacherForm.full_name
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  full_name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            {!editingTeacher && (
-              <>
-                <label>
-                  Adresse e-mail
-                </label>
-
-                <input
-                  type="email"
-                  placeholder="professeur@email.com"
-                  value={
-                    teacherForm.email
-                  }
-                  onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      email:
-                        e.target.value,
-                    })
-                  }
-                  required
-                />
-              </>
-            )}
-
-            <label>
-              École
-            </label>
-
-            <select
-              value={
-                teacherForm.school_id
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  school_id:
-                    e.target.value,
-                })
-              }
-              required
-            >
-              <option value="">
-                Choisir une école
-              </option>
-
-              {schools.map(
-                (school) => (
-                  <option
-                    key={school.id}
-                    value={school.id}
-                  >
-                    {school.name}
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              Téléphone
-            </label>
-
-            <input
-              type="text"
-              placeholder="77 000 00 00"
-              value={
-                teacherForm.phone
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  phone:
-                    e.target.value,
-                })
-              }
-            />
-
-            <button type="submit">
-              {editingTeacher
-                ? "💾 Enregistrer"
-                : "Créer le professeur"}
-            </button>
-          </form>
-        )}
-
-        <div className="grid">
-          {teachers.length === 0 ? (
-            <div className="notice">
-              Aucun professeur.
-            </div>
-          ) : (
-            teachers.map(
-              (teacher) => (
-                <div
-                  className="stat"
-                  key={teacher.id}
-                >
-                  <strong>
-                    👨‍🏫{" "}
-                    {teacher.full_name ||
-                      "Sans nom"}
-                  </strong>
-
-                  <span>
-                    🏫{" "}
-                    {getSchoolName(
-                      teacher.school_id
-                    )}
-                  </span>
-
-                  <span>
-                    {teacher.phone ||
-                      "Téléphone non renseigné"}
-                  </span>
-
-                  <span>
-                    Rôle :{" "}
-                    {teacher.role}
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      startEditTeacher(
-                        teacher
-                      )
-                    }
-                  >
-                    ✏️ Modifier
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      toggleTeacher(
-                        teacher
-                      )
-                    }
-                  >
-                    {teacher.role ===
-                    "teacher"
-                      ? "🚫 Désactiver"
-                      : "✅ Réactiver"}
-                  </button>
-                </div>
-              )
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // ÉLÈVES
-  // =========================================================
-
-  function renderStudents() {
-    const availableClasses =
-      studentForm.school_id
-        ? classes.filter(
-            (item) =>
-              item.school_id ===
-              studentForm.school_id
-          )
-        : [];
-
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            👨‍🎓 Gestion des élèves
-          </h2>
-
-          <p>
-            Total :{" "}
-            {students.length}
-          </p>
-
-          <button
-            onClick={() => {
-              if (showStudentForm) {
-                resetStudentForm();
-              } else {
-                setEditingStudent(
-                  null
-                );
-
-                setStudentForm({
-                  school_id: "",
-                  class_id: "",
-                  first_name: "",
-                  last_name: "",
-                  student_code: "",
-                  photo_url: "",
-                  active: true,
-                  parent_id: "",
-                  relationship:
-                    "Parent",
-                });
-
-                setShowStudentForm(
-                  true
-                );
-              }
-            }}
-          >
-            {showStudentForm
-              ? "Fermer"
-              : "➕ Nouvel élève"}
-          </button>
-        </div>
-
-        {showStudentForm && (
-          <form
-            className="notice"
-            onSubmit={saveStudent}
-          >
-            <h3>
-              {editingStudent
-                ? "Modifier l'élève"
-                : "Nouvel élève"}
-            </h3>
-
-            <label>
-              École
-            </label>
-
-            <select
-              value={
-                studentForm.school_id
-              }
-              onChange={(e) => {
-                setStudentForm({
-                  ...studentForm,
-                  school_id:
-                    e.target.value,
-                  class_id: "",
-                });
-              }}
-              required
-            >
-              <option value="">
-                Choisir une école
-              </option>
-
-              {schools.map(
-                (school) => (
-                  <option
-                    key={school.id}
-                    value={school.id}
-                  >
-                    {school.name}
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              Classe
-            </label>
-
-            <select
-              value={
-                studentForm.class_id
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  class_id:
-                    e.target.value,
-                })
-              }
-            >
-              <option value="">
-                Choisir une classe
-              </option>
-
-              {availableClasses.map(
-                (classItem) => (
-                  <option
-                    key={classItem.id}
-                    value={classItem.id}
-                  >
-                    {classItem.name}
-                    {classItem.level
-                      ? ` — ${classItem.level}`
-                      : ""}
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              Prénom
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Amadou"
-              value={
-                studentForm.first_name
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  first_name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Nom
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Diop"
-              value={
-                studentForm.last_name
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  last_name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Code / matricule élève
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : EC-2026-001"
-              value={
-                studentForm.student_code
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  student_code:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              URL de la photo
-            </label>
-
-            <input
-              type="text"
-              placeholder="https://..."
-              value={
-                studentForm.photo_url
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  photo_url:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              Parent
-            </label>
-
-            <select
-              value={
-                studentForm.parent_id
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  parent_id:
-                    e.target.value,
-                })
-              }
-            >
-              <option value="">
-                Aucun parent pour le moment
-              </option>
-
-              {parents.map(
-                (parent) => (
-                  <option
-                    key={parent.id}
-                    value={parent.id}
-                  >
-                    {parent.full_name ||
-                      "Parent sans nom"}
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              Relation
-            </label>
-
-            <select
-              value={
-                studentForm.relationship
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  relationship:
-                    e.target.value,
-                })
-              }
-            >
-              <option value="Parent">
-                Parent
-              </option>
-
-              <option value="Père">
-                Père
-              </option>
-
-              <option value="Mère">
-                Mère
-              </option>
-
-              <option value="Tuteur">
-                Tuteur
-              </option>
-
-              <option value="Tutrice">
-                Tutrice
-              </option>
-            </select>
-
-            <label>
-              Statut
-            </label>
-
-            <select
-              value={
-                studentForm.active
-                  ? "true"
-                  : "false"
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  active:
-                    e.target.value ===
-                    "true",
-                })
-              }
-            >
-              <option value="true">
-                🟢 Actif
-              </option>
-
-              <option value="false">
-                🔴 Inactif
-              </option>
-            </select>
-
-            <button type="submit">
-              {editingStudent
-                ? "💾 Enregistrer"
-                : "Créer l'élève"}
-            </button>
-
-            <button
-              type="button"
-              className="secondary"
-              onClick={
-                resetStudentForm
-              }
-            >
-              Annuler
-            </button>
-          </form>
-        )}
-
-        <div className="grid">
-          {students.length === 0 ? (
-            <div className="notice">
-              Aucun élève trouvé.
-            </div>
-          ) : (
-            students.map(
-              (student) => (
-                <div
-                  className="stat"
-                  key={student.id}
-                >
-                  {student.photo_url && (
-                    <img
-                      src={
-                        student.photo_url
-                      }
-                      alt={
-                        `${student.first_name} ${student.last_name}`
-                      }
-                      style={{
-                        width: "80px",
-                        height: "80px",
-                        objectFit:
-                          "cover",
-                        borderRadius:
-                          "50%",
-                      }}
-                    />
-                  )}
-
-                  <strong>
-                    👨‍🎓{" "}
-                    {student.first_name}{" "}
-                    {student.last_name}
-                  </strong>
-
-                  <span>
-                    🏫 École :{" "}
-                    {getSchoolName(
-                      student.school_id
-                    )}
-                  </span>
-
-                  <span>
-                    📚 Classe :{" "}
-                    {student.class_id
-                      ? getClassName(
-                          student.class_id
-                        )
-                      : "Non affectée"}
-                  </span>
-
-                  <span>
-                    🆔 Code :{" "}
-                    {student.student_code ||
-                      "Non renseigné"}
-                  </span>
-
-                  <span>
-                    👪 Parent :{" "}
-                    {getParentName(
-                      student.id
-                    )}
-                  </span>
-
-                  <span>
-                    Relation :{" "}
-                    {getParentRelationship(
-                      student.id
-                    )}
-                  </span>
-
-                  <span>
-                    Statut :{" "}
-                    {student.active ===
-                    false
-                      ? "🔴 Inactif"
-                      : "🟢 Actif"}
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      startEditStudent(
-                        student
-                      )
-                    }
-                  >
-                    ✏️ Modifier
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      toggleStudent(
-                        student
-                      )
-                    }
-                  >
-                    {student.active ===
-                    false
-                      ? "✅ Réactiver"
-                      : "🚫 Désactiver"}
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      deleteStudent(
-                        student
-                      )
-                    }
-                  >
-                    🗑️ Supprimer
-                  </button>
-                </div>
-              )
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // PARENTS
-  // =========================================================
-
-  function renderParents() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            👪 Tous les parents
-          </h2>
-
-          <p>
-            Total :{" "}
-            {parents.length}
-          </p>
-        </div>
-
-        <div className="grid">
-          {parents.length === 0 ? (
-            <div className="notice">
-              Aucun parent trouvé.
-            </div>
-          ) : (
-            parents.map(
-              (parent) => {
-                const linkedStudents =
-                  parentStudents.filter(
-                    (item) =>
-                      item.parent_id ===
-                      parent.id
-                  );
-
-                return (
-                  <div
-                    className="stat"
-                    key={parent.id}
-                  >
-                    <strong>
-                      👪{" "}
-                      {parent.full_name ||
-                        "Parent sans nom"}
-                    </strong>
-
-                    <span>
-                      {parent.phone ||
-                        "Téléphone non renseigné"}
-                    </span>
-
-                    <span>
-                      Rôle :{" "}
-                      {parent.role}
-                    </span>
-
-                    <span>
-                      👨‍🎓 Élèves associés :{" "}
-                      {
-                        linkedStudents.length
-                      }
-                    </span>
-
-                    {linkedStudents.map(
-                      (relation) => (
-                        <span
-                          key={
-                            relation.student_id
-                          }
-                        >
-                          •{" "}
-                          {getStudentName(
-                            relation.student_id
-                          )}{" "}
-                          —{" "}
-                          {relation.relationship ||
-                            "Parent"}
-                        </span>
-                      )
-                    )}
-                  </div>
-                );
-              }
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // ÉCOLES
-  // =========================================================
-
-  function renderSchools() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            🏫 Gestion des écoles
-          </h2>
-
-          <button
-            onClick={() => {
-              if (showSchoolForm) {
-                resetSchoolForm();
-              } else {
-                setEditingSchool(
-                  null
-                );
-
-                setSchoolForm({
-                  name: "",
-                  address: "",
-                  city: "",
-                  phone: "",
-                  email: "",
-                });
-
-                setShowSchoolForm(
-                  true
-                );
-              }
-            }}
-          >
-            {showSchoolForm
-              ? "Fermer"
-              : "➕ Nouvelle école"}
-          </button>
-        </div>
-
-        {showSchoolForm && (
-          <form
-            className="notice"
-            onSubmit={saveSchool}
-          >
-            <h3>
-              {editingSchool
-                ? "Modifier l'école"
-                : "Nouvelle école"}
-            </h3>
-
-            <label>
-              Nom de l'école
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : École Connectée"
-              value={schoolForm.name}
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Adresse
-            </label>
-
-            <input
-              type="text"
-              value={
-                schoolForm.address
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  address:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              Ville
-            </label>
-
-            <input
-              type="text"
-              placeholder="Dakar"
-              value={schoolForm.city}
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  city:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              Téléphone
-            </label>
-
-            <input
-              type="text"
-              value={
-                schoolForm.phone
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  phone:
-                    e.target.value,
-                })
-              }
-            />
-
-            <label>
-              E-mail
-            </label>
-
-            <input
-              type="email"
-              value={
-                schoolForm.email
-              }
-              onChange={(e) =>
-                setSchoolForm({
-                  ...schoolForm,
-                  email:
-                    e.target.value,
-                })
-              }
-            />
-
-            <button type="submit">
-              {editingSchool
-                ? "💾 Enregistrer"
-                : "Créer l'école"}
-            </button>
-          </form>
-        )}
-
-        <div className="grid">
-          {schools.map(
-            (school) => (
-              <div
-                className="stat"
-                key={school.id}
-              >
-                <strong>
-                  🏫{" "}
-                  {school.name}
-                </strong>
-
-                <span>
-                  {school.city ||
-                    "Ville non renseignée"}
-                </span>
-
-                <button
-                  onClick={() =>
-                    startEditSchool(
-                      school
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteSchool(
-                      school
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // CLASSES
-  // =========================================================
-
-  function renderClasses() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            📚 Gestion des classes
-          </h2>
-
-          <button
-            onClick={() => {
-              if (showClassForm) {
-                resetClassForm();
-              } else {
-                setEditingClass(
-                  null
-                );
-
-                setClassForm({
-                  school_id: "",
-                  name: "",
-                  level: "",
-                });
-
-                setShowClassForm(
-                  true
-                );
-              }
-            }}
-          >
-            {showClassForm
-              ? "Fermer"
-              : "➕ Nouvelle classe"}
-          </button>
-        </div>
-
-        {showClassForm && (
-          <form
-            className="notice"
-            onSubmit={saveClass}
-          >
-            <h3>
-              {editingClass
-                ? "Modifier la classe"
-                : "Nouvelle classe"}
-            </h3>
-
-            <label>
-              École
-            </label>
-
-            <select
-              value={
-                classForm.school_id
-              }
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  school_id:
-                    e.target.value,
-                })
-              }
-              required
-            >
-              <option value="">
-                Choisir une école
-              </option>
-
-              {schools.map(
-                (school) => (
-                  <option
-                    key={school.id}
-                    value={school.id}
-                  >
-                    {school.name}
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              Nom de la classe
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : 4ème A"
-              value={classForm.name}
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <label>
-              Niveau
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : 4ème"
-              value={
-                classForm.level
-              }
-              onChange={(e) =>
-                setClassForm({
-                  ...classForm,
-                  level:
-                    e.target.value,
-                })
-              }
-            />
-
-            <button type="submit">
-              {editingClass
-                ? "💾 Enregistrer"
-                : "Créer la classe"}
-            </button>
-          </form>
-        )}
-
-        <div className="grid">
-          {classes.map(
-            (classItem) => (
-              <div
-                className="stat"
-                key={classItem.id}
-              >
-                <strong>
-                  📚{" "}
-                  {classItem.name}
-                </strong>
-
-                <span>
-                  Niveau :{" "}
-                  {classItem.level ||
-                    "Non renseigné"}
-                </span>
-
-                <span>
-                  🏫{" "}
-                  {getSchoolName(
-                    classItem.school_id
-                  )}
-                </span>
-
-                <button
-                  onClick={() =>
-                    startEditClass(
-                      classItem
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteClass(
-                      classItem
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // MATIÈRES
-  // =========================================================
-
-  function renderSubjects() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            📖 Gestion des matières
-          </h2>
-
-          <button
-            onClick={() => {
-              if (showSubjectForm) {
-                resetSubjectForm();
-              } else {
-                setEditingSubject(
-                  null
-                );
-
-                setSubjectForm({
-                  name: "",
-                });
-
-                setShowSubjectForm(
-                  true
-                );
-              }
-            }}
-          >
-            {showSubjectForm
-              ? "Fermer"
-              : "➕ Nouvelle matière"}
-          </button>
-        </div>
-
-        {showSubjectForm && (
-          <form
-            className="notice"
-            onSubmit={saveSubject}
-          >
-            <h3>
-              {editingSubject
-                ? "Modifier la matière"
-                : "Nouvelle matière"}
-            </h3>
-
-            <label>
-              Nom de la matière
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Mathématiques"
-              value={
-                subjectForm.name
-              }
-              onChange={(e) =>
-                setSubjectForm({
-                  name:
-                    e.target.value,
-                })
-              }
-              required
-            />
-
-            <button type="submit">
-              {editingSubject
-                ? "💾 Enregistrer"
-                : "Créer la matière"}
-            </button>
-          </form>
-        )}
-
-        <div className="grid">
-          {subjects.map(
-            (subject) => (
-              <div
-                className="stat"
-                key={subject.id}
-              >
-                <strong>
-                  📖{" "}
-                  {subject.name}
-                </strong>
-
-                <button
-                  onClick={() =>
-                    startEditSubject(
-                      subject
-                    )
-                  }
-                >
-                  ✏️ Modifier
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteSubject(
-                      subject
-                    )
-                  }
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            )
-          )}
-        </div>
-      </>
-    );
-  }
-
-  // =========================================================
-  // DOCUMENTS
-  // =========================================================
-
-  function renderDocuments() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            📄 Tous les documents /
-            leçons
-          </h2>
-
-          <p>
-            Total :{" "}
-            {documents.length}
-          </p>
-        </div>
-
-        {documents.length === 0 ? (
-          <div className="notice">
-            Aucun document publié.
-          </div>
-        ) : (
-          <div className="grid">
-            {documents.map(
-              (document) => (
-                <div
-                  className="stat"
-                  key={document.id}
-                >
-                  <strong>
-                    📄{" "}
-                    {document.title}
-                  </strong>
-
-                  <span>
-                    Type :{" "}
-                    {
-                      document.document_type
-                    }
-                  </span>
-
-                  <span>
-                    👨‍🏫{" "}
-                    {getTeacherName(
-                      document.teacher_id
-                    )}
-                  </span>
-
-                  <span>
-                    📚{" "}
-                    {getClassName(
-                      document.class_id
-                    )}
-                  </span>
-
-                  <span>
-                    📖{" "}
-                    {getSubjectName(
-                      document.subject_id
-                    )}
-                  </span>
-
-                  {document.description && (
-                    <span>
-                      {
-                        document.description
-                      }
-                    </span>
-                  )}
-
-                  <span>
-                    📅{" "}
-                    {formatDate(
-                      document.created_at
-                    )}
-                  </span>
-
-                  {document.file_url && (
-                    <a
-                      href={
-                        document.file_url
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      📥 Ouvrir le document
-                    </a>
-                  )}
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // =========================================================
-  // EXERCICES
-  // =========================================================
-
-  function renderExercises() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            📝 Tous les exercices
-          </h2>
-
-          <p>
-            Total :{" "}
-            {exercises.length}
-          </p>
-        </div>
-
-        {exercises.length === 0 ? (
-          <div className="notice">
-            Aucun exercice trouvé.
-          </div>
-        ) : (
-          <div className="grid">
-            {exercises.map(
-              (exercise) => {
-                const exerciseQuestions =
-                  questions.filter(
-                    (question) =>
-                      question.exercise_id ===
-                      exercise.id
-                  );
-
-                return (
-                  <div
-                    className="stat"
-                    key={exercise.id}
-                  >
-                    <strong>
-                      📝{" "}
-                      {exercise.title}
-                    </strong>
-
-                    <span>
-                      👨‍🏫{" "}
-                      {getTeacherName(
-                        exercise.teacher_id
-                      )}
-                    </span>
-
-                    <span>
-                      🏫{" "}
-                      {getSchoolName(
-                        exercise.school_id
-                      )}
-                    </span>
-
-                    <span>
-                      📚{" "}
-                      {getClassName(
-                        exercise.class_id
-                      )}
-                    </span>
-
-                    <span>
-                      📖{" "}
-                      {getSubjectName(
-                        exercise.subject_id
-                      )}
-                    </span>
-
-                    <span>
-                      Questions :{" "}
-                      {
-                        exerciseQuestions.length
-                      }
-                    </span>
-
-                    <span>
-                      Durée :{" "}
-                      {
-                        exercise.duration_minutes ||
-                        0
-                      }{" "}
-                      min
-                    </span>
-
-                    <span>
-                      Statut :{" "}
-                      {exercise.published
-                        ? "Publié"
-                        : "Brouillon"}
-                    </span>
-
-                    {exercise.description && (
-                      <span>
-                        {
-                          exercise.description
-                        }
-                      </span>
-                    )}
-
-                    {exercise.instructions && (
-                      <span>
-                        Instructions :{" "}
-                        {
-                          exercise.instructions
-                        }
-                      </span>
-                    )}
-
-                    <span>
-                      📅{" "}
-                      {formatDate(
-                        exercise.created_at
-                      )}
-                    </span>
-                  </div>
-                );
-              }
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // =========================================================
-  // QUESTIONS
-  // =========================================================
-
-  function renderQuestions() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            ❓ Questions des exercices
-          </h2>
-
-          <p>
-            Total :{" "}
-            {questions.length}
-          </p>
-        </div>
-
-        {questions.length === 0 ? (
-          <div className="notice">
-            Aucune question trouvée.
-          </div>
-        ) : (
-          <div className="grid">
-            {questions.map(
-              (question) => (
-                <div
-                  className="stat"
-                  key={question.id}
-                >
-                  <strong>
-                    ❓ Question{" "}
-                    {question.position ||
-                      ""}
-                  </strong>
-
-                  <span>
-                    Exercice :{" "}
-                    {getExerciseName(
-                      question.exercise_id
-                    )}
-                  </span>
-
-                  <span>
-                    {question.question}
-                  </span>
-
-                  <span>
-                    Type :{" "}
-                    {
-                      question.question_type
-                    }
-                  </span>
-
-                  <span>
-                    Points :{" "}
-                    {question.points ||
-                      0}
-                  </span>
-
-                  {question.correct_answer && (
-                    <span>
-                      Réponse correcte :{" "}
-                      {
-                        question.correct_answer
-                      }
-                    </span>
-                  )}
-
-                  {question.options && (
-                    <span>
-                      Options :{" "}
-                      {JSON.stringify(
-                        question.options
-                      )}
-                    </span>
-                  )}
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // =========================================================
-  // NOTIFICATIONS
-  // =========================================================
-
-  function renderNotifications() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            🔔 Notifications /
-            échanges
-          </h2>
-
-          <p>
-            Total :{" "}
-            {notifications.length}
-          </p>
-        </div>
-
-        {notifications.length === 0 ? (
-          <div className="notice">
-            Aucune notification
-            trouvée.
-          </div>
-        ) : (
-          <div className="grid">
-            {notifications.map(
-              (notification) => (
-                <div
-                  className="stat"
-                  key={notification.id}
-                >
-                  <strong>
-                    🔔{" "}
-                    {notification.title ||
-                      "Notification"}
-                  </strong>
-
-                  <span>
-                    Type :{" "}
-                    {notification.type ||
-                      "Non renseigné"}
-                  </span>
-
-                  <span>
-                    Destinataire :{" "}
-                    {notification.recipient_id ||
-                      "Non renseigné"}
-                  </span>
-
-                  {notification.student_id && (
-                    <span>
-                      Élève :{" "}
-                      {getStudentName(
-                        notification.student_id
-                      )}
-                    </span>
-                  )}
-
-                  <span>
-                    {notification.message ||
-                      "Aucun message"}
-                  </span>
-
-                  <span>
-                    État :{" "}
-                    {notification.read
-                      ? "Lu"
-                      : "Non lu"}
-                  </span>
-
-                  <span>
-                    📅{" "}
-                    {formatDate(
-                      notification.created_at
-                    )}
-                  </span>
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // =========================================================
-  // CONTRÔLE TOTAL
-  // =========================================================
-
-  function renderAdminControl() {
-    return (
-      <>
-        <div className="notice">
-          <h2>
-            👑 Contrôle total
-          </h2>
-
-          <p>
-            Vue globale de l'activité
-            de tous les utilisateurs
-            de l'application.
-          </p>
-
-          {adminControlLoading && (
-            <p>
-              ⏳ Chargement des
-              données...
-            </p>
-          )}
-        </div>
-
-        <div className="grid">
-          <button
-            onClick={() =>
-              setAdminControlTab(
-                "documents"
-              )
-            }
-          >
-            📄 Documents (
-            {adminDocuments.length}
-            )
-          </button>
-
-          <button
-            onClick={() =>
-              setAdminControlTab(
-                "exercises"
-              )
-            }
-          >
-            📝 Exercices (
-            {adminExercises.length}
-            )
-          </button>
-
-          <button
-            onClick={() =>
-              setAdminControlTab(
-                "attendance"
-              )
-            }
-          >
-            🕘 Présences (
-            {adminAttendance.length}
-            )
-          </button>
-
-          <button
-            onClick={() =>
-              setAdminControlTab(
-                "notifications"
-              )
-            }
-          >
-            🔔 Activités (
-            {
-              adminNotifications.length
-            }
-            )
-          </button>
-        </div>
-
-        {adminControlTab ===
-          "documents" && (
-          <div className="notice">
-            <h3>
-              📄 Tous les documents
-            </h3>
-
-            {adminDocuments.length ===
-            0 ? (
-              <p>
-                Aucun document trouvé.
-              </p>
-            ) : (
-              <div className="grid">
-                {adminDocuments.map(
-                  (document) => (
-                    <div
-                      className="stat"
-                      key={
-                        document.id
-                      }
-                    >
-                      <strong>
-                        📄{" "}
-                        {
-                          document.title
-                        }
-                      </strong>
-
-                      <span>
-                        Type :{" "}
-                        {
-                          document.document_type
-                        }
-                      </span>
-
-                      <span>
-                        Professeur :{" "}
-                        {getTeacherName(
-                          document.teacher_id
-                        )}
-                      </span>
-
-                      <span>
-                        Classe :{" "}
-                        {getClassName(
-                          document.class_id
-                        )}
-                      </span>
-
-                      <span>
-                        Matière :{" "}
-                        {getSubjectName(
-                          document.subject_id
-                        )}
-                      </span>
-
-                      <span>
-                        📅{" "}
-                        {formatDate(
-                          document.created_at
-                        )}
-                      </span>
-
-                      {document.file_url && (
-                        <a
-                          href={
-                            document.file_url
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          📥 Ouvrir le document
-                        </a>
-                      )}
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {adminControlTab ===
-          "exercises" && (
-          <div className="notice">
-            <h3>
-              📝 Tous les exercices
-            </h3>
-
-            {adminExercises.length ===
-            0 ? (
-              <p>
-                Aucun exercice trouvé.
-              </p>
-            ) : (
-              <div className="grid">
-                {adminExercises.map(
-                  (exercise) => (
-                    <div
-                      className="stat"
-                      key={
-                        exercise.id
-                      }
-                    >
-                      <strong>
-                        📝{" "}
-                        {
-                          exercise.title
-                        }
-                      </strong>
-
-                      <span>
-                        Professeur :{" "}
-                        {getTeacherName(
-                          exercise.teacher_id
-                        )}
-                      </span>
-
-                      <span>
-                        École :{" "}
-                        {getSchoolName(
-                          exercise.school_id
-                        )}
-                      </span>
-
-                      <span>
-                        Classe :{" "}
-                        {getClassName(
-                          exercise.class_id
-                        )}
-                      </span>
-
-                      <span>
-                        Matière :{" "}
-                        {getSubjectName(
-                          exercise.subject_id
-                        )}
-                      </span>
-
-                      <span>
-                        Statut :{" "}
-                        {exercise.published
-                          ? "Publié"
-                          : "Brouillon"}
-                      </span>
-
-                      <span>
-                        📅{" "}
-                        {formatDate(
-                          exercise.created_at
-                        )}
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {adminControlTab ===
-          "attendance" && (
-          <div className="notice">
-            <h3>
-              🕘 Toutes les présences
-            </h3>
-
-            {adminAttendance.length ===
-            0 ? (
-              <p>
-                Aucune présence
-                enregistrée.
-              </p>
-            ) : (
-              <div className="grid">
-                {adminAttendance.map(
-                  (attendance) => (
-                    <div
-                      className="stat"
-                      key={
-                        attendance.id
-                      }
-                    >
-                      <strong>
-                        👨‍🎓{" "}
-                        {getStudentName(
-                          attendance.student_id
-                        )}
-                      </strong>
-
-                      <span>
-                        📅 Date :{" "}
-                        {attendance.date ||
-                          "Non renseignée"}
-                      </span>
-
-                      <span>
-                        🟢 Arrivée :{" "}
-                        {attendance.arrival_time ||
-                          "Non renseignée"}
-                      </span>
-
-                      <span>
-                        🔴 Départ :{" "}
-                        {attendance.departure_time ||
-                          "Non renseigné"}
-                      </span>
-
-                      <span>
-                        Statut :{" "}
-                        {attendance.status ||
-                          "Non renseigné"}
-                      </span>
-
-                      <span>
-                        Enregistré par :{" "}
-                        {attendance.recorded_by ||
-                          "Non renseigné"}
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {adminControlTab ===
-          "notifications" && (
-          <div className="notice">
-            <h3>
-              🔔 Activités /
-              notifications
-            </h3>
-
-            {adminNotifications.length ===
-            0 ? (
-              <p>
-                Aucune activité
-                trouvée.
-              </p>
-            ) : (
-              <div className="grid">
-                {adminNotifications.map(
-                  (notification) => (
-                    <div
-                      className="stat"
-                      key={
-                        notification.id
-                      }
-                    >
-                      <strong>
-                        🔔{" "}
-                        {notification.title ||
-                          "Notification"}
-                      </strong>
-
-                      <span>
-                        Type :{" "}
-                        {notification.type ||
-                          "Non renseigné"}
-                      </span>
-
-                      <span>
-                        Destinataire :{" "}
-                        {notification.recipient_id ||
-                          "Non renseigné"}
-                      </span>
-
-                      {notification.student_id && (
-                        <span>
-                          Élève :{" "}
-                          {getStudentName(
-                            notification.student_id
-                          )}
-                        </span>
-                      )}
-
-                      <span>
-                        {notification.message ||
-                          "Aucun message"}
-                      </span>
-
-                      <span>
-                        État :{" "}
-                        {notification.read
-                          ? "Lu"
-                          : "Non lu"}
-                      </span>
-
-                      <span>
-                        📅{" "}
-                        {formatDate(
-                          notification.created_at
-                        )}
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // =========================================================
-  // SECTION ACTIVE
-  // =========================================================
-
-  function renderActiveSection() {
-    switch (activeSection) {
-      case "teachers":
-        return renderTeachers();
-
-      case "students":
-        return renderStudents();
-
-      case "parents":
-        return renderParents();
-
-      case "schools":
-        return renderSchools();
-
-      case "classes":
-        return renderClasses();
-
-      case "subjects":
-        return renderSubjects();
-
-      case "documents":
-        return renderDocuments();
-
-      case "exercises":
-        return renderExercises();
-
-      case "questions":
-        return renderQuestions();
-
-      case "notifications":
-        return renderNotifications();
-
-      case "admin-control":
-        return renderAdminControl();
-
-      default:
-        return renderDashboard();
-    }
-  }
-
-  // =========================================================
+      acc[level].push(item);
+
+      return acc;
+    }, {});
+  }, [classes]);
+
+  // ---------------------------------------------------------
+  // DOCUMENTS RÉCENTS
+  // ---------------------------------------------------------
+
+  const recentDocuments = useMemo(() => {
+    return documents.slice(0, 5);
+  }, [documents]);
+
+  // ---------------------------------------------------------
+  // MENU
+  // ---------------------------------------------------------
+
+  const menuItems = [
+    {
+      id: "dashboard",
+      label: "Tableau de bord",
+      icon: "📊",
+    },
+    {
+      id: "classes",
+      label: "Classes",
+      icon: "🏫",
+    },
+    {
+      id: "students",
+      label: "Élèves",
+      icon: "👨‍🎓",
+    },
+    {
+      id: "subjects",
+      label: "Matières",
+      icon: "📚",
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: "📄",
+    },
+    {
+      id: "attendance",
+      label: "Présences",
+      icon: "✅",
+    },
+  ];
+
+  // ---------------------------------------------------------
   // CHARGEMENT
-  // =========================================================
+  // ---------------------------------------------------------
 
   if (loading) {
     return (
-      <div className="center">
-        Chargement de
-        l'administration…
+      <div style={styles.loadingPage}>
+        <div style={styles.spinner}></div>
+        <h2>École Connectée</h2>
+        <p>Chargement du tableau de bord...</p>
       </div>
     );
   }
 
-  // =========================================================
-  // AFFICHAGE PRINCIPAL
-  // =========================================================
+  // ---------------------------------------------------------
+  // AFFICHAGE
+  // ---------------------------------------------------------
 
   return (
-    <main className="page">
-      <section className="card dashboard">
-        <div className="top">
-          <div>
-            <p className="eyebrow">
-              ÉCOLE CONNECTÉE
-            </p>
+    <div style={styles.page}>
+      {/* SIDEBAR */}
 
-            <h1>
-              Administration 🛠️
+      <aside style={styles.sidebar}>
+        <div style={styles.logoArea}>
+          <div style={styles.logo}>EC</div>
+
+          <div>
+            <strong style={styles.logoTitle}>École</strong>
+            <strong style={styles.logoGreen}> Connectée</strong>
+          </div>
+        </div>
+
+        <div style={styles.schoolBox}>
+          <div style={styles.schoolIcon}>🏫</div>
+
+          <div>
+            <div style={styles.schoolName}>
+              École Connectée
+            </div>
+
+            <div style={styles.schoolRole}>
+              Administration
+            </div>
+          </div>
+        </div>
+
+        <nav style={styles.nav}>
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              style={{
+                ...styles.navButton,
+                ...(activeSection === item.id
+                  ? styles.navButtonActive
+                  : {}),
+              }}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div style={styles.sidebarBottom}>
+          <button
+            style={styles.logoutButton}
+            onClick={async () => {
+              await supabase.auth.signOut();
+            }}
+          >
+            🚪 Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* CONTENU */}
+
+      <main style={styles.main}>
+        {/* HEADER */}
+
+        <header style={styles.header}>
+          <div>
+            <h1 style={styles.title}>
+              {activeSection === "dashboard"
+                ? "Tableau de bord"
+                : menuItems.find(
+                    (item) => item.id === activeSection
+                  )?.label}
             </h1>
 
-            <p>
-              {session?.user?.email}
+            <p style={styles.subtitle}>
+              Bienvenue
+              {profile?.full_name
+                ? `, ${profile.full_name}`
+                : ""}{" "}
+              👋
             </p>
           </div>
 
-          <button
-            className="secondary"
-            onClick={onLogout}
-          >
-            Déconnexion
-          </button>
-        </div>
-
-        {message && (
-          <p className="message">
-            {message}
-          </p>
-        )}
-
-        {renderNavigation()}
-
-        {activeSection !==
-          "dashboard" && (
-          <div className="notice">
+          <div style={styles.headerRight}>
             <button
-              className="secondary"
-              onClick={() =>
-                openSection(
-                  "dashboard"
-                )
-              }
+              style={styles.refreshButton}
+              onClick={() => loadDashboard(true)}
+              disabled={refreshing}
             >
-              ← Retour au tableau de
-              bord
+              {refreshing ? "Actualisation..." : "↻ Actualiser"}
+            </button>
+
+            <div style={styles.avatar}>
+              {(profile?.full_name || "A").charAt(0).toUpperCase()}
+            </div>
+          </div>
+        </header>
+
+        {/* ERREUR */}
+
+        {error && (
+          <div style={styles.errorBox}>
+            <strong>⚠️ Erreur</strong>
+            <p>{error}</p>
+
+            <button
+              style={styles.retryButton}
+              onClick={() => loadDashboard(false)}
+            >
+              Réessayer
             </button>
           </div>
         )}
 
-        {renderActiveSection()}
-      </section>
-    </main>
+        {/* DASHBOARD */}
+
+        {activeSection === "dashboard" && (
+          <>
+            {/* STATISTIQUES */}
+
+            <section style={styles.statsGrid}>
+              <StatCard
+                icon="🏫"
+                title="Classes"
+                value={stats.classes}
+                description="Classes enregistrées"
+              />
+
+              <StatCard
+                icon="👨‍🎓"
+                title="Élèves"
+                value={stats.students}
+                description="Élèves inscrits"
+              />
+
+              <StatCard
+                icon="📚"
+                title="Matières"
+                value={stats.subjects}
+                description="Matières disponibles"
+              />
+
+              <StatCard
+                icon="📄"
+                title="Documents"
+                value={stats.documents}
+                description="Documents publiés"
+              />
+            </section>
+
+            {/* PRÉSENCES */}
+
+            <section style={styles.attendanceBanner}>
+              <div style={styles.attendanceIcon}>✅</div>
+
+              <div>
+                <h3 style={styles.attendanceTitle}>
+                  Présences aujourd'hui
+                </h3>
+
+                <p style={styles.attendanceText}>
+                  {stats.attendanceToday} enregistrement
+                  {stats.attendanceToday !== 1 ? "s" : ""} de
+                  présence aujourd'hui.
+                </p>
+              </div>
+            </section>
+
+            {/* CLASSES */}
+
+            <section style={styles.card}>
+              <div style={styles.cardHeader}>
+                <div>
+                  <h2 style={styles.cardTitle}>
+                    Classes de l'établissement
+                  </h2>
+
+                  <p style={styles.cardSubtitle}>
+                    {classes.length} classes enregistrées
+                  </p>
+                </div>
+
+                <button
+                  style={styles.smallButton}
+                  onClick={() => setActiveSection("classes")}
+                >
+                  Voir toutes
+                </button>
+              </div>
+
+              {classes.length === 0 ? (
+                <EmptyState text="Aucune classe trouvée." />
+              ) : (
+                <div style={styles.classesGrid}>
+                  {classes.map((item) => (
+                    <div
+                      key={item.id}
+                      style={styles.classCard}
+                    >
+                      <div style={styles.classIcon}>🏫</div>
+
+                      <div>
+                        <strong style={styles.className}>
+                          {item.name || "Classe sans nom"}
+                        </strong>
+
+                        <span style={styles.classLevel}>
+                          {item.level || "Niveau non renseigné"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* DOCUMENTS RÉCENTS */}
+
+            <section style={styles.card}>
+              <div style={styles.cardHeader}>
+                <div>
+                  <h2 style={styles.cardTitle}>
+                    Documents récents
+                  </h2>
+
+                  <p style={styles.cardSubtitle}>
+                    Derniers documents publiés
+                  </p>
+                </div>
+
+                <button
+                  style={styles.smallButton}
+                  onClick={() => setActiveSection("documents")}
+                >
+                  Voir tous
+                </button>
+              </div>
+
+              {recentDocuments.length === 0 ? (
+                <EmptyState text="Aucun document publié." />
+              ) : (
+                <div style={styles.documentList}>
+                  {recentDocuments.map((document) => (
+                    <div
+                      key={document.id}
+                      style={styles.documentRow}
+                    >
+                      <div style={styles.documentIcon}>
+                        📄
+                      </div>
+
+                      <div style={styles.documentInfo}>
+                        <strong>
+                          {document.title || "Sans titre"}
+                        </strong>
+
+                        <span>
+                          {document.document_type || "Document"}{" "}
+                          •{" "}
+                          {formatDate(document.created_at)}
+                        </span>
+                      </div>
+
+                      {document.file_url && (
+                        <a
+                          href={document.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.openLink}
+                        >
+                          Ouvrir
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {/* CLASSES */}
+
+        {activeSection === "classes" && (
+          <section style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div>
+                <h2 style={styles.cardTitle}>
+                  Gestion des classes
+                </h2>
+
+                <p style={styles.cardSubtitle}>
+                  Classes actuellement enregistrées dans Supabase
+                </p>
+              </div>
+            </div>
+
+            {Object.keys(classesByLevel).map((level) => (
+              <div key={level} style={styles.levelSection}>
+                <h3 style={styles.levelTitle}>{level}</h3>
+
+                <div style={styles.classesGrid}>
+                  {classesByLevel[level].map((item) => (
+                    <div
+                      key={item.id}
+                      style={styles.classCard}
+                    >
+                      <div style={styles.classIcon}>🏫</div>
+
+                      <div>
+                        <strong style={styles.className}>
+                          {item.name}
+                        </strong>
+
+                        <span style={styles.classLevel}>
+                          ID : {item.id}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* ÉLÈVES */}
+
+        {activeSection === "students" && (
+          <section style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div>
+                <h2 style={styles.cardTitle}>
+                  Élèves
+                </h2>
+
+                <p style={styles.cardSubtitle}>
+                  {students.length} élève
+                  {students.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            {students.length === 0 ? (
+              <EmptyState text="Aucun élève trouvé." />
+            ) : (
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Élève</th>
+                      <th style={styles.th}>Classe</th>
+                      <th style={styles.th}>ID</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {students.map((student) => {
+                      const classId =
+                        student.class_id ||
+                        student.classe_id;
+
+                      const studentClass = classes.find(
+                        (item) => item.id === classId
+                      );
+
+                      return (
+                        <tr key={student.id}>
+                          <td style={styles.td}>
+                            {student.full_name ||
+                              student.name ||
+                              `${student.first_name || ""} ${
+                                student.last_name || ""
+                              }`.trim() ||
+                              "Élève"}
+                          </td>
+
+                          <td style={styles.td}>
+                            {studentClass?.name ||
+                              "Non affecté"}
+                          </td>
+
+                          <td style={styles.tdSmall}>
+                            {student.id}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* MATIÈRES */}
+
+        {activeSection === "subjects" && (
+          <section style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div>
+                <h2 style={styles.cardTitle}>
+                  Matières
+                </h2>
+
+                <p style={styles.cardSubtitle}>
+                  Matières disponibles dans Supabase
+                </p>
+              </div>
+            </div>
+
+            {subjects.length === 0 ? (
+              <EmptyState text="Aucune matière trouvée." />
+            ) : (
+              <div style={styles.classesGrid}>
+                {subjects.map((subject) => (
+                  <div
+                    key={subject.id}
+                    style={styles.classCard}
+                  >
+                    <div style={styles.classIcon}>📚</div>
+
+                    <div>
+                      <strong style={styles.className}>
+                        {subject.name ||
+                          subject.nom ||
+                          "Matière"}
+                      </strong>
+
+                      <span style={styles.classLevel}>
+                        ID : {subject.id}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* DOCUMENTS */}
+
+        {activeSection === "documents" && (
+          <section style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div>
+                <h2 style={styles.cardTitle}>
+                  Documents pédagogiques
+                </h2>
+
+                <p style={styles.cardSubtitle}>
+                  Documents publiés par les enseignants
+                </p>
+              </div>
+            </div>
+
+            {documents.length === 0 ? (
+              <EmptyState text="Aucun document trouvé." />
+            ) : (
+              <div style={styles.documentList}>
+                {documents.map((document) => {
+                  const classItem = classes.find(
+                    (item) => item.id === document.class_id
+                  );
+
+                  const subjectItem = subjects.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(document.subject_id)
+                  );
+
+                  return (
+                    <div
+                      key={document.id}
+                      style={styles.documentRow}
+                    >
+                      <div style={styles.documentIcon}>
+                        📄
+                      </div>
+
+                      <div style={styles.documentInfo}>
+                        <strong>
+                          {document.title || "Sans titre"}
+                        </strong>
+
+                        <span>
+                          Type :{" "}
+                          {document.document_type || "—"}
+                        </span>
+
+                        <span>
+                          Classe :{" "}
+                          {classItem?.name || "—"}
+                        </span>
+
+                        <span>
+                          Matière :{" "}
+                          {subjectItem?.name ||
+                            subjectItem?.nom ||
+                            "—"}
+                        </span>
+                      </div>
+
+                      <div style={styles.documentDate}>
+                        {formatDate(document.created_at)}
+                      </div>
+
+                      {document.file_url && (
+                        <a
+                          href={document.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.openLink}
+                        >
+                          Ouvrir
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* PRÉSENCES */}
+
+        {activeSection === "attendance" && (
+          <section style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div>
+                <h2 style={styles.cardTitle}>
+                  Présences du jour
+                </h2>
+
+                <p style={styles.cardSubtitle}>
+                  {attendance.length} enregistrement
+                  {attendance.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            {attendance.length === 0 ? (
+              <EmptyState text="Aucun enregistrement de présence aujourd'hui." />
+            ) : (
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Élève</th>
+                      <th style={styles.th}>Statut</th>
+                      <th style={styles.th}>Heure</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {attendance.map((item) => {
+                      const studentId =
+                        item.student_id ||
+                        item.studentId;
+
+                      const student = students.find(
+                        (studentItem) =>
+                          studentItem.id === studentId
+                      );
+
+                      const status =
+                        item.status ||
+                        item.type ||
+                        item.event_type ||
+                        "Présence";
+
+                      return (
+                        <tr key={item.id}>
+                          <td style={styles.td}>
+                            {student?.full_name ||
+                              student?.name ||
+                              "Élève"}
+                          </td>
+
+                          <td style={styles.td}>
+                            <span style={styles.statusBadge}>
+                              {status}
+                            </span>
+                          </td>
+
+                          <td style={styles.td}>
+                            {formatTime(item.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* FOOTER */}
+
+        <footer style={styles.footer}>
+          École Connectée © {new Date().getFullYear()} — 
+          Gestion scolaire intelligente
+        </footer>
+      </main>
+    </div>
   );
 }
+
+// =========================================================
+// COMPOSANT STAT CARD
+// =========================================================
+
+function StatCard({
+  icon,
+  title,
+  value,
+  description,
+}) {
+  return (
+    <div style={styles.statCard}>
+      <div style={styles.statIcon}>{icon}</div>
+
+      <div>
+        <p style={styles.statTitle}>{title}</p>
+
+        <strong style={styles.statValue}>
+          {value}
+        </strong>
+
+        <p style={styles.statDescription}>
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================
+// EMPTY STATE
+// =========================================================
+
+function EmptyState({ text }) {
+  return (
+    <div style={styles.empty}>
+      <div style={styles.emptyIcon}>📭</div>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+// =========================================================
+// STYLES
+// =========================================================
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    display: "flex",
+    background: "#f5f7fb",
+    color: "#172033",
+    fontFamily:
+      "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  },
+
+  sidebar: {
+    width: "250px",
+    minHeight: "100vh",
+    background: "#ffffff",
+    borderRight: "1px solid #e6eaf0",
+    padding: "22px 16px",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+    position: "sticky",
+    top: 0,
+    alignSelf: "flex-start",
+  },
+
+  logoArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "26px",
+    padding: "4px",
+  },
+
+  logo: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "12px",
+    background: "#0b65c2",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "800",
+    fontSize: "15px",
+  },
+
+  logoTitle: {
+    color: "#1468c4",
+  },
+
+  logoGreen: {
+    color: "#1ba36a",
+  },
+
+  schoolBox: {
+    background: "#f1f6fc",
+    borderRadius: "14px",
+    padding: "13px",
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    marginBottom: "24px",
+  },
+
+  schoolIcon: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "10px",
+    background: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  schoolName: {
+    fontWeight: "700",
+    fontSize: "13px",
+  },
+
+  schoolRole: {
+    color: "#738096",
+    fontSize: "12px",
+    marginTop: "3px",
+  },
+
+  nav: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+
+  navButton: {
+    border: "none",
+    background: "transparent",
+    padding: "12px 13px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    gap: "11px",
+    color: "#68758a",
+    fontSize: "14px",
+    fontWeight: "600",
+  },
+
+  navButtonActive: {
+    background: "#eaf3ff",
+    color: "#0969c8",
+  },
+
+  sidebarBottom: {
+    marginTop: "auto",
+  },
+
+  logoutButton: {
+    width: "100%",
+    border: "1px solid #e5e9ef",
+    background: "#ffffff",
+    padding: "11px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    color: "#68758a",
+    fontWeight: "600",
+  },
+
+  main: {
+    flex: 1,
+    padding: "28px",
+    minWidth: 0,
+  },
+
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "20px",
+    marginBottom: "26px",
+  },
+
+  title: {
+    margin: 0,
+    fontSize: "28px",
+    fontWeight: "800",
+  },
+
+  subtitle: {
+    margin: "6px 0 0",
+    color: "#7a8799",
+    fontSize: "14px",
+  },
+
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  refreshButton: {
+    border: "1px solid #dce4ee",
+    background: "#ffffff",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    cursor: "pointer",
+    color: "#415065",
+    fontWeight: "600",
+  },
+
+  avatar: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "50%",
+    background: "#0b65c2",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "800",
+  },
+
+  errorBox: {
+    background: "#fff2f2",
+    border: "1px solid #ffcaca",
+    color: "#9d2020",
+    padding: "15px",
+    borderRadius: "12px",
+    marginBottom: "20px",
+  },
+
+  retryButton: {
+    border: "none",
+    background: "#b42318",
+    color: "#ffffff",
+    borderRadius: "8px",
+    padding: "8px 13px",
+    cursor: "pointer",
+    fontWeight: "600",
+  },
+
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "16px",
+    marginBottom: "18px",
+  },
+
+  statCard: {
+    background: "#ffffff",
+    border: "1px solid #e8ecf2",
+    borderRadius: "16px",
+    padding: "19px",
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
+    boxShadow: "0 2px 8px rgba(15, 35, 60, 0.03)",
+  },
+
+  statIcon: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "13px",
+    background: "#edf5ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+  },
+
+  statTitle: {
+    margin: 0,
+    color: "#7a8799",
+    fontSize: "13px",
+  },
+
+  statValue: {
+    display: "block",
+    fontSize: "27px",
+    marginTop: "2px",
+  },
+
+  statDescription: {
+    margin: "2px 0 0",
+    color: "#9aa5b4",
+    fontSize: "11px",
+  },
+
+  attendanceBanner: {
+    background: "#eaf8f1",
+    border: "1px solid #cceedd",
+    borderRadius: "16px",
+    padding: "17px 20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    marginBottom: "18px",
+  },
+
+  attendanceIcon: {
+    width: "44px",
+    height: "44px",
+    background: "#ffffff",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+  },
+
+  attendanceTitle: {
+    margin: 0,
+    fontSize: "16px",
+  },
+
+  attendanceText: {
+    margin: "4px 0 0",
+    color: "#62806f",
+    fontSize: "13px",
+  },
+
+  card: {
+    background: "#ffffff",
+    border: "1px solid #e8ecf2",
+    borderRadius: "16px",
+    padding: "20px",
+    marginBottom: "18px",
+    boxShadow: "0 2px 8px rgba(15, 35, 60, 0.03)",
+  },
+
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "15px",
+    marginBottom: "18px",
+  },
+
+  cardTitle: {
+    margin: 0,
+    fontSize: "18px",
+  },
+
+  cardSubtitle: {
+    margin: "4px 0 0",
+    color: "#8894a5",
+    fontSize: "13px",
+  },
+
+  smallButton: {
+    border: "none",
+    background: "#edf5ff",
+    color: "#0969c8",
+    borderRadius: "9px",
+    padding: "8px 12px",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  classesGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "12px",
+  },
+
+  classCard: {
+    border: "1px solid #e9edf2",
+    borderRadius: "13px",
+    padding: "14px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    background: "#fbfcfe",
+  },
+
+  classIcon: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "11px",
+    background: "#edf5ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "19px",
+    flexShrink: 0,
+  },
+
+  className: {
+    display: "block",
+    fontSize: "14px",
+  },
+
+  classLevel: {
+    display: "block",
+    color: "#8490a1",
+    fontSize: "12px",
+    marginTop: "4px",
+    wordBreak: "break-all",
+  },
+
+  documentList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+
+  documentRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px",
+    border: "1px solid #edf0f4",
+    borderRadius: "11px",
+  },
+
+  documentIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    background: "#f1f5ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  documentInfo: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "3px",
+  },
+
+  documentInfoStrong: {
+    fontWeight: "700",
+  },
+
+  documentInfoSpan: {
+    color: "#8792a3",
+    fontSize: "12px",
+  },
+
+  documentDate: {
+    color: "#8894a5",
+    fontSize: "12px",
+  },
+
+  openLink: {
+    textDecoration: "none",
+    background: "#edf5ff",
+    color: "#0969c8",
+    borderRadius: "8px",
+    padding: "7px 10px",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+
+  levelSection: {
+    marginBottom: "22px",
+  },
+
+  levelTitle: {
+    fontSize: "15px",
+    margin: "0 0 10px",
+    color: "#536176",
+  },
+
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: "600px",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "12px",
+    background: "#f7f9fc",
+    color: "#68758a",
+    fontSize: "12px",
+    borderBottom: "1px solid #e8ecf2",
+  },
+
+  td: {
+    padding: "13px 12px",
+    borderBottom: "1px solid #edf0f4",
+    fontSize: "13px",
+  },
+
+  tdSmall: {
+    padding: "13px 12px",
+    borderBottom: "1px solid #edf0f4",
+    fontSize: "11px",
+    color: "#8994a5",
+    wordBreak: "break-all",
+  },
+
+  statusBadge: {
+    display: "inline-block",
+    padding: "5px 9px",
+    borderRadius: "20px",
+    background: "#eaf8f1",
+    color: "#218653",
+    fontSize: "11px",
+    fontWeight: "700",
+  },
+
+  empty: {
+    textAlign: "center",
+    padding: "40px 20px",
+    color: "#8a95a5",
+  },
+
+  emptyIcon: {
+    fontSize: "30px",
+    marginBottom: "7px",
+  },
+
+  footer: {
+    textAlign: "center",
+    color: "#9aa5b4",
+    fontSize: "12px",
+    padding: "20px 0 5px",
+  },
+
+  loadingPage: {
+    minHeight: "100vh",
+    background: "#f5f7fb",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#172033",
+  },
+
+  spinner: {
+    width: "38px",
+    height: "38px",
+    border: "4px solid #dce8f5",
+    borderTop: "4px solid #0b65c2",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    marginBottom: "15px",
+  },
+};

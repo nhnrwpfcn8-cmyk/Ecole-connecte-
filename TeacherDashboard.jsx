@@ -5,11 +5,15 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [documents, setDocuments] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [exercises, setExercises] = useState([]);
 
-  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [showExerciseForm, setShowExerciseForm] = useState(false);
+
+  // DOCUMENT
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [documentType, setDocumentType] = useState("lecon");
@@ -17,6 +21,26 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [subjectId, setSubjectId] = useState("");
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+
+  // EXERCICE
+  const [exerciseTitle, setExerciseTitle] = useState("");
+  const [exerciseDescription, setExerciseDescription] = useState("");
+  const [exerciseInstructions, setExerciseInstructions] = useState("");
+  const [exerciseClassId, setExerciseClassId] = useState("");
+  const [exerciseSubjectId, setExerciseSubjectId] = useState("");
+  const [duration, setDuration] = useState("");
+
+  const [questions, setQuestions] = useState([
+    {
+      question: "",
+      question_type: "text",
+      options: "",
+      correct_answer: "",
+      points: 1
+    }
+  ]);
+
+  const [savingExercise, setSavingExercise] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -28,7 +52,8 @@ export default function TeacherDashboard({ session, onLogout }) {
     const [
       documentsResult,
       classesResult,
-      subjectsResult
+      subjectsResult,
+      exercisesResult
     ] = await Promise.all([
       supabase
         .from("documents")
@@ -44,7 +69,13 @@ export default function TeacherDashboard({ session, onLogout }) {
       supabase
         .from("subjects")
         .select("*")
-        .order("name")
+        .order("name"),
+
+      supabase
+        .from("exercises")
+        .select("*")
+        .eq("teacher_id", session.user.id)
+        .order("created_at", { ascending: false })
     ]);
 
     if (documentsResult.data) {
@@ -59,8 +90,16 @@ export default function TeacherDashboard({ session, onLogout }) {
       setSubjects(subjectsResult.data);
     }
 
+    if (exercisesResult.data) {
+      setExercises(exercisesResult.data);
+    }
+
     setLoading(false);
   }
+
+  // =========================
+  // DOCUMENTS
+  // =========================
 
   async function publishDocument() {
     setMessage("");
@@ -88,9 +127,6 @@ export default function TeacherDashboard({ session, onLogout }) {
     setUploading(true);
 
     try {
-      const fileExtension =
-        file.name.split(".").pop();
-
       const filePath =
         `${session.user.id}/${Date.now()}-${file.name}`;
 
@@ -133,16 +169,207 @@ export default function TeacherDashboard({ session, onLogout }) {
       setClassId("");
       setSubjectId("");
       setFile(null);
-      setShowForm(false);
+      setShowDocumentForm(false);
 
       await loadData();
+
     } catch (error) {
       console.error(error);
-      setMessage(
-        "Erreur : " + error.message
-      );
+      setMessage("Erreur : " + error.message);
+
     } finally {
       setUploading(false);
+    }
+  }
+
+  // =========================
+  // QUESTIONS
+  // =========================
+
+  function addQuestion() {
+    setQuestions([
+      ...questions,
+      {
+        question: "",
+        question_type: "text",
+        options: "",
+        correct_answer: "",
+        points: 1
+      }
+    ]);
+  }
+
+  function removeQuestion(index) {
+    if (questions.length === 1) {
+      return;
+    }
+
+    setQuestions(
+      questions.filter((_, i) => i !== index)
+    );
+  }
+
+  function updateQuestion(index, field, value) {
+    const updated = [...questions];
+
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+
+    setQuestions(updated);
+  }
+
+  // =========================
+  // CREER EXERCICE
+  // =========================
+
+  async function saveExercise(published) {
+    setMessage("");
+
+    if (!exerciseTitle.trim()) {
+      setMessage("Veuillez saisir le titre de l'exercice.");
+      return;
+    }
+
+    if (!exerciseClassId) {
+      setMessage("Veuillez choisir une classe.");
+      return;
+    }
+
+    if (!exerciseSubjectId) {
+      setMessage("Veuillez choisir une matière.");
+      return;
+    }
+
+    for (const item of questions) {
+      if (!item.question.trim()) {
+        setMessage("Toutes les questions doivent être remplies.");
+        return;
+      }
+
+      if (!item.correct_answer.trim()) {
+        setMessage("Veuillez indiquer la réponse correcte.");
+        return;
+      }
+    }
+
+    setSavingExercise(true);
+
+    try {
+      // Récupérer l'école du professeur
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("school_id")
+          .eq("id", session.user.id)
+          .single();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (!profile?.school_id) {
+        throw new Error(
+          "Votre profil professeur n'est associé à aucune école."
+        );
+      }
+
+      // Créer l'exercice
+      const { data: exercise, error: exerciseError } =
+        await supabase
+          .from("exercises")
+          .insert({
+            teacher_id: session.user.id,
+            school_id: profile.school_id,
+            class_id: exerciseClassId,
+            subject_id: Number(exerciseSubjectId),
+            title: exerciseTitle.trim(),
+            description: exerciseDescription.trim(),
+            instructions: exerciseInstructions.trim(),
+            duration_minutes:
+              duration
+                ? Number(duration)
+                : null,
+            published: published
+          })
+          .select()
+          .single();
+
+      if (exerciseError) {
+        throw exerciseError;
+      }
+
+      // Préparer les questions
+      const questionRows = questions.map(
+        (item, index) => ({
+          exercise_id: exercise.id,
+          question: item.question.trim(),
+          question_type: item.question_type,
+          options:
+            item.question_type === "qcm"
+              ? item.options
+                  .split(",")
+                  .map((option) => option.trim())
+                  .filter(Boolean)
+              : null,
+          correct_answer:
+            item.correct_answer.trim(),
+          points:
+            Number(item.points) || 1,
+          position: index
+        })
+      );
+
+      const { error: questionsError } =
+        await supabase
+          .from("exercise_questions")
+          .insert(questionRows);
+
+      if (questionsError) {
+        // Supprimer l'exercice si les questions échouent
+        await supabase
+          .from("exercises")
+          .delete()
+          .eq("id", exercise.id);
+
+        throw questionsError;
+      }
+
+      setMessage(
+        published
+          ? "🎉 Exercice publié avec succès !"
+          : "💾 Exercice enregistré comme brouillon."
+      );
+
+      // Réinitialisation
+      setExerciseTitle("");
+      setExerciseDescription("");
+      setExerciseInstructions("");
+      setExerciseClassId("");
+      setExerciseSubjectId("");
+      setDuration("");
+
+      setQuestions([
+        {
+          question: "",
+          question_type: "text",
+          options: "",
+          correct_answer: "",
+          points: 1
+        }
+      ]);
+
+      setShowExerciseForm(false);
+
+      await loadData();
+
+    } catch (error) {
+      console.error(error);
+      setMessage("Erreur : " + error.message);
+
+    } finally {
+      setSavingExercise(false);
     }
   }
 
@@ -157,6 +384,8 @@ export default function TeacherDashboard({ session, onLogout }) {
   return (
     <main className="page">
       <section className="card dashboard">
+
+        {/* HEADER */}
 
         <div className="top">
           <div>
@@ -181,6 +410,8 @@ export default function TeacherDashboard({ session, onLogout }) {
           </button>
         </div>
 
+        {/* STATISTIQUES */}
+
         <div className="grid">
 
           <div className="stat">
@@ -190,6 +421,16 @@ export default function TeacherDashboard({ session, onLogout }) {
 
             <span>
               Publications
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {exercises.length}
+            </strong>
+
+            <span>
+              Exercices
             </span>
           </div>
 
@@ -215,28 +456,398 @@ export default function TeacherDashboard({ session, onLogout }) {
 
         </div>
 
+        {/* MESSAGE */}
+
+        {message && (
+          <p className="message">
+            {message}
+          </p>
+        )}
+
+        {/* =========================
+            EXERCICES
+        ========================= */}
+
         <div className="notice">
 
           <h2>
-            Publier un document
+            📝 Exercices
           </h2>
 
           <p>
-            Partagez facilement vos leçons,
-            exercices et interrogations avec vos élèves.
+            Créez des exercices interactifs
+            pour vos élèves.
           </p>
 
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() =>
+              setShowExerciseForm(
+                !showExerciseForm
+              )
+            }
           >
-            {showForm
+            {showExerciseForm
+              ? "Fermer"
+              : "+ Nouvel exercice"}
+          </button>
+
+        </div>
+
+        {/* FORMULAIRE EXERCICE */}
+
+        {showExerciseForm && (
+          <div className="card">
+
+            <h2>
+              📝 Nouvel exercice
+            </h2>
+
+            <label>
+              Classe
+            </label>
+
+            <select
+              value={exerciseClassId}
+              onChange={(e) =>
+                setExerciseClassId(
+                  e.target.value
+                )
+              }
+            >
+              <option value="">
+                Choisir une classe
+              </option>
+
+              {classes.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <label>
+              Matière
+            </label>
+
+            <select
+              value={exerciseSubjectId}
+              onChange={(e) =>
+                setExerciseSubjectId(
+                  e.target.value
+                )
+              }
+            >
+              <option value="">
+                Choisir une matière
+              </option>
+
+              {subjects.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <label>
+              Titre de l'exercice
+            </label>
+
+            <input
+              type="text"
+              placeholder="Ex : Les fractions"
+              value={exerciseTitle}
+              onChange={(e) =>
+                setExerciseTitle(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Description
+            </label>
+
+            <textarea
+              placeholder="Décrivez l'exercice..."
+              value={exerciseDescription}
+              onChange={(e) =>
+                setExerciseDescription(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Consignes
+            </label>
+
+            <textarea
+              placeholder="Ex : Répondez à toutes les questions."
+              value={exerciseInstructions}
+              onChange={(e) =>
+                setExerciseInstructions(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Durée en minutes
+            </label>
+
+            <input
+              type="number"
+              min="1"
+              placeholder="Ex : 30"
+              value={duration}
+              onChange={(e) =>
+                setDuration(
+                  e.target.value
+                )
+              }
+            />
+
+            <hr />
+
+            <h3>
+              Questions
+            </h3>
+
+            {questions.map(
+              (item, index) => (
+                <div
+                  key={index}
+                  className="card"
+                >
+
+                  <h3>
+                    Question {index + 1}
+                  </h3>
+
+                  <label>
+                    Question
+                  </label>
+
+                  <textarea
+                    placeholder="Écrivez la question..."
+                    value={item.question}
+                    onChange={(e) =>
+                      updateQuestion(
+                        index,
+                        "question",
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  <label>
+                    Type de question
+                  </label>
+
+                  <select
+                    value={
+                      item.question_type
+                    }
+                    onChange={(e) =>
+                      updateQuestion(
+                        index,
+                        "question_type",
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="text">
+                      Réponse libre
+                    </option>
+
+                    <option value="qcm">
+                      QCM
+                    </option>
+
+                    <option value="vrai_faux">
+                      Vrai / Faux
+                    </option>
+                  </select>
+
+                  {item.question_type ===
+                    "qcm" && (
+                    <>
+                      <label>
+                        Choix de réponses
+                      </label>
+
+                      <input
+                        type="text"
+                        placeholder="Ex : Paris, Dakar, Londres"
+                        value={item.options}
+                        onChange={(e) =>
+                          updateQuestion(
+                            index,
+                            "options",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </>
+                  )}
+
+                  <label>
+                    Réponse correcte
+                  </label>
+
+                  <input
+                    type="text"
+                    placeholder="Réponse correcte"
+                    value={
+                      item.correct_answer
+                    }
+                    onChange={(e) =>
+                      updateQuestion(
+                        index,
+                        "correct_answer",
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  <label>
+                    Points
+                  </label>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.points}
+                    onChange={(e) =>
+                      updateQuestion(
+                        index,
+                        "points",
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  {questions.length > 1 && (
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        removeQuestion(index)
+                      }
+                    >
+                      🗑️ Supprimer la question
+                    </button>
+                  )}
+
+                </div>
+              )
+            )}
+
+            <button
+              className="secondary"
+              onClick={addQuestion}
+            >
+              + Ajouter une question
+            </button>
+
+            <br />
+            <br />
+
+            <button
+              onClick={() =>
+                saveExercise(false)
+              }
+              disabled={savingExercise}
+            >
+              💾 Enregistrer brouillon
+            </button>
+
+            <button
+              onClick={() =>
+                saveExercise(true)
+              }
+              disabled={savingExercise}
+            >
+              {savingExercise
+                ? "Enregistrement..."
+                : "📢 Publier l'exercice"}
+            </button>
+
+          </div>
+        )}
+
+        {/* =========================
+            MES EXERCICES
+        ========================= */}
+
+        <div className="notice">
+
+          <h2>
+            📚 Mes exercices
+          </h2>
+
+          {exercises.length === 0 ? (
+            <p>
+              Vous n'avez encore créé aucun exercice.
+            </p>
+          ) : (
+            exercises.map((exercise) => (
+              <div
+                key={exercise.id}
+                className="stat"
+              >
+
+                <strong>
+                  {exercise.title}
+                </strong>
+
+                <span>
+                  {exercise.published
+                    ? "🟢 Publié"
+                    : "🟡 Brouillon"}
+                </span>
+
+              </div>
+            ))
+          )}
+
+        </div>
+
+        {/* =========================
+            DOCUMENTS
+        ========================= */}
+
+        <div className="notice">
+
+          <h2>
+            📚 Documents
+          </h2>
+
+          <p>
+            Partagez vos leçons, cours,
+            exercices et devoirs avec vos élèves.
+          </p>
+
+          <button
+            onClick={() =>
+              setShowDocumentForm(
+                !showDocumentForm
+              )
+            }
+          >
+            {showDocumentForm
               ? "Fermer"
               : "+ Publier un document"}
           </button>
 
         </div>
 
-        {showForm && (
+        {showDocumentForm && (
           <div className="card">
 
             <h2>
@@ -250,7 +861,9 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={documentType}
               onChange={(e) =>
-                setDocumentType(e.target.value)
+                setDocumentType(
+                  e.target.value
+                )
               }
             >
               <option value="lecon">
@@ -285,7 +898,9 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={classId}
               onChange={(e) =>
-                setClassId(e.target.value)
+                setClassId(
+                  e.target.value
+                )
               }
             >
               <option value="">
@@ -309,7 +924,9 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={subjectId}
               onChange={(e) =>
-                setSubjectId(e.target.value)
+                setSubjectId(
+                  e.target.value
+                )
               }
             >
               <option value="">
@@ -347,7 +964,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Décrivez le contenu..."
               value={description}
               onChange={(e) =>
-                setDescription(e.target.value)
+                setDescription(
+                  e.target.value
+                )
               }
             />
 
@@ -359,7 +978,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               type="file"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               onChange={(e) =>
-                setFile(e.target.files?.[0] || null)
+                setFile(
+                  e.target.files?.[0] || null
+                )
               }
             />
 
@@ -372,19 +993,15 @@ export default function TeacherDashboard({ session, onLogout }) {
                 : "📤 Publier"}
             </button>
 
-            {message && (
-              <p className="message">
-                {message}
-              </p>
-            )}
-
           </div>
         )}
+
+        {/* PUBLICATIONS */}
 
         <div className="notice">
 
           <h2>
-            Mes publications
+            📖 Mes publications
           </h2>
 
           {documents.length === 0 ? (
@@ -397,6 +1014,7 @@ export default function TeacherDashboard({ session, onLogout }) {
                 key={document.id}
                 className="stat"
               >
+
                 <strong>
                   {document.title}
                 </strong>
@@ -404,6 +1022,7 @@ export default function TeacherDashboard({ session, onLogout }) {
                 <span>
                   {document.document_type}
                 </span>
+
               </div>
             ))
           )}

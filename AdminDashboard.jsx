@@ -28,6 +28,7 @@ export default function AdminDashboard({ session, onLogout }) {
     full_name: "",
     email: "",
     phone: "",
+    school_id: "",
   });
 
   const [schoolForm, setSchoolForm] = useState({
@@ -72,7 +73,9 @@ export default function AdminDashboard({ session, onLogout }) {
       ] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, phone, role")
+          .select(
+            "id, full_name, phone, role, school_id"
+          )
           .eq("role", "teacher")
           .order("full_name"),
 
@@ -153,6 +156,13 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
+    if (!teacherForm.school_id) {
+      setMessage(
+        "Veuillez choisir l'école du professeur."
+      );
+      return;
+    }
+
     try {
       const { data, error } =
         await supabase.functions.invoke(
@@ -164,6 +174,8 @@ export default function AdminDashboard({ session, onLogout }) {
               email: teacherForm.email,
               phone: teacherForm.phone,
               role: "teacher",
+              school_id:
+                teacherForm.school_id,
             },
           }
         );
@@ -187,6 +199,7 @@ export default function AdminDashboard({ session, onLogout }) {
         full_name: "",
         email: "",
         phone: "",
+        school_id: "",
       });
 
       setShowTeacherForm(false);
@@ -206,6 +219,13 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
+    if (!teacherForm.school_id) {
+      setMessage(
+        "Veuillez choisir l'école du professeur."
+      );
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("profiles")
@@ -213,6 +233,8 @@ export default function AdminDashboard({ session, onLogout }) {
           full_name:
             teacherForm.full_name,
           phone: teacherForm.phone,
+          school_id:
+            teacherForm.school_id,
         })
         .eq("id", editingTeacher.id);
 
@@ -230,7 +252,10 @@ export default function AdminDashboard({ session, onLogout }) {
         full_name: "",
         email: "",
         phone: "",
+        school_id: "",
       });
+
+      setShowTeacherForm(false);
 
       await loadData();
     } catch (error) {
@@ -286,9 +311,7 @@ export default function AdminDashboard({ session, onLogout }) {
           .update(schoolForm)
           .eq("id", editingSchool.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "École modifiée avec succès."
@@ -298,9 +321,7 @@ export default function AdminDashboard({ session, onLogout }) {
           .from("schools")
           .insert([schoolForm]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "École créée avec succès."
@@ -340,9 +361,7 @@ export default function AdminDashboard({ session, onLogout }) {
         .delete()
         .eq("id", school.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setMessage("École supprimée.");
 
@@ -388,9 +407,7 @@ export default function AdminDashboard({ session, onLogout }) {
           })
           .eq("id", editingClass.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "Classe modifiée avec succès."
@@ -410,9 +427,7 @@ export default function AdminDashboard({ session, onLogout }) {
             },
           ]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "Classe créée avec succès."
@@ -450,9 +465,7 @@ export default function AdminDashboard({ session, onLogout }) {
         .delete()
         .eq("id", classItem.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setMessage("Classe supprimée.");
 
@@ -482,14 +495,10 @@ export default function AdminDashboard({ session, onLogout }) {
       if (editingSubject) {
         const { error } = await supabase
           .from("subjects")
-          .update({
-            name: name,
-          })
+          .update({ name })
           .eq("id", editingSubject.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "Matière modifiée avec succès."
@@ -497,25 +506,16 @@ export default function AdminDashboard({ session, onLogout }) {
       } else {
         const { error } = await supabase
           .from("subjects")
-          .insert([
-            {
-              name: name,
-            },
-          ]);
+          .insert([{ name }]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
           "Matière créée avec succès."
         );
       }
 
-      setSubjectForm({
-        name: "",
-      });
-
+      setSubjectForm({ name: "" });
       setEditingSubject(null);
       setShowSubjectForm(false);
 
@@ -541,9 +541,7 @@ export default function AdminDashboard({ session, onLogout }) {
         .delete()
         .eq("id", subject.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setMessage(
         "Matière supprimée."
@@ -565,7 +563,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
     return (
       school?.name ||
-      "École inconnue"
+      "École non configurée"
     );
   }
 
@@ -578,6 +576,8 @@ export default function AdminDashboard({ session, onLogout }) {
       email: "",
       phone:
         teacher.phone || "",
+      school_id:
+        teacher.school_id || "",
     });
 
     setShowTeacherForm(true);
@@ -672,54 +672,42 @@ export default function AdminDashboard({ session, onLogout }) {
             <strong>
               {stats.teachers}
             </strong>
-            <span>
-              Professeurs
-            </span>
+            <span>Professeurs</span>
           </div>
 
           <div className="stat">
             <strong>
               {stats.students}
             </strong>
-            <span>
-              Élèves
-            </span>
+            <span>Élèves</span>
           </div>
 
           <div className="stat">
             <strong>
               {stats.parents}
             </strong>
-            <span>
-              Parents
-            </span>
+            <span>Parents</span>
           </div>
 
           <div className="stat">
             <strong>
               {stats.schools}
             </strong>
-            <span>
-              Écoles
-            </span>
+            <span>Écoles</span>
           </div>
 
           <div className="stat">
             <strong>
               {stats.classes}
             </strong>
-            <span>
-              Classes
-            </span>
+            <span>Classes</span>
           </div>
 
           <div className="stat">
             <strong>
               {stats.subjects}
             </strong>
-            <span>
-              Matières
-            </span>
+            <span>Matières</span>
           </div>
 
         </div>
@@ -739,6 +727,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 full_name: "",
                 email: "",
                 phone: "",
+                school_id: "",
               });
 
               setShowTeacherForm(
@@ -828,6 +817,39 @@ export default function AdminDashboard({ session, onLogout }) {
               }
             />
 
+            <label>
+              🏫 École où il enseigne
+            </label>
+
+            <select
+              value={
+                teacherForm.school_id
+              }
+              onChange={(e) =>
+                setTeacherForm({
+                  ...teacherForm,
+                  school_id:
+                    e.target.value,
+                })
+              }
+              required
+            >
+              <option value="">
+                Choisir une école
+              </option>
+
+              {schools.map(
+                (school) => (
+                  <option
+                    key={school.id}
+                    value={school.id}
+                  >
+                    {school.name}
+                  </option>
+                )
+              )}
+            </select>
+
             <button type="submit">
               {editingTeacher
                 ? "💾 Enregistrer"
@@ -844,13 +866,22 @@ export default function AdminDashboard({ session, onLogout }) {
                 key={teacher.id}
               >
                 <strong>
+                  👨‍🏫{" "}
                   {teacher.full_name ||
                     "Sans nom"}
                 </strong>
 
                 <span>
+                  📱{" "}
                   {teacher.phone ||
                     "Téléphone non renseigné"}
+                </span>
+
+                <span>
+                  🏫{" "}
+                  {getSchoolName(
+                    teacher.school_id
+                  )}
                 </span>
 
                 <button
@@ -923,9 +954,7 @@ export default function AdminDashboard({ session, onLogout }) {
             <input
               type="text"
               placeholder="Ex : École Connectée"
-              value={
-                schoolForm.name
-              }
+              value={schoolForm.name}
               onChange={(e) =>
                 setSchoolForm({
                   ...schoolForm,
@@ -942,7 +971,6 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="text"
-              placeholder="Adresse"
               value={
                 schoolForm.address
               }
@@ -961,10 +989,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="text"
-              placeholder="Dakar"
-              value={
-                schoolForm.city
-              }
+              value={schoolForm.city}
               onChange={(e) =>
                 setSchoolForm({
                   ...schoolForm,
@@ -980,7 +1005,6 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="text"
-              placeholder="77 000 00 00"
               value={
                 schoolForm.phone
               }
@@ -999,7 +1023,6 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="email"
-              placeholder="ecole@email.com"
               value={
                 schoolForm.email
               }

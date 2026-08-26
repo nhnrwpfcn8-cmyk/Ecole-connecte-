@@ -27,6 +27,14 @@ export default function AdminDashboard({ session, onLogout }) {
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  // 👑 CONTRÔLE TOTAL ADMIN
+  const [adminDocuments, setAdminDocuments] = useState([]);
+  const [adminExercises, setAdminExercises] = useState([]);
+  const [adminAttendance, setAdminAttendance] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [adminControlLoading, setAdminControlLoading] = useState(false);
+  const [adminControlTab, setAdminControlTab] = useState("documents");
   const [activeSection, setActiveSection] = useState("dashboard");
 
   const [showTeacherForm, setShowTeacherForm] = useState(false);
@@ -230,7 +238,129 @@ export default function AdminDashboard({ session, onLogout }) {
       setLoading(false);
     }
   }
+  async function loadAdminControlData() {
+    setAdminControlLoading(true);
 
+    try {
+      const [
+        documentsResult,
+        exercisesResult,
+        attendanceResult,
+        notificationsResult,
+      ] = await Promise.all([
+        supabase
+          .from("documents")
+          .select(`
+            id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            document_type,
+            file_url,
+            created_at
+          `)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("exercises")
+          .select(`
+            id,
+            teacher_id,
+            school_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            instructions,
+            duration_minutes,
+            published,
+            created_at
+          `)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("attendance")
+          .select(`
+            id,
+            student_id,
+            date,
+            arrival_time,
+            departure_time,
+            status,
+            recorded_by,
+            created_at
+          `)
+          .order("date", { ascending: false }),
+
+        supabase
+          .from("notifications")
+          .select(`
+            id,
+            recipient_id,
+            student_id,
+            type,
+            title,
+            message,
+            read,
+            created_at
+          `)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (documentsResult.error) {
+        console.error(
+          "Erreur documents :",
+          documentsResult.error
+        );
+      }
+
+      if (exercisesResult.error) {
+        console.error(
+          "Erreur exercices :",
+          exercisesResult.error
+        );
+      }
+
+      if (attendanceResult.error) {
+        console.error(
+          "Erreur présences :",
+          attendanceResult.error
+        );
+      }
+
+      if (notificationsResult.error) {
+        console.error(
+          "Erreur notifications :",
+          notificationsResult.error
+        );
+      }
+
+      setAdminDocuments(
+        documentsResult.data || []
+      );
+
+      setAdminExercises(
+        exercisesResult.data || []
+      );
+
+      setAdminAttendance(
+        attendanceResult.data || []
+      );
+
+      setAdminNotifications(
+        notificationsResult.data || []
+      );
+    } catch (error) {
+      console.error(
+        "Erreur contrôle total :",
+        error
+      );
+    } finally {
+      setAdminControlLoading(false);
+    }
+  }
   async function createTeacher(e) {
     e.preventDefault();
     setMessage("");
@@ -804,16 +934,25 @@ export default function AdminDashboard({ session, onLogout }) {
           </button>
 
           <button
-            onClick={() =>
-              openSection("notifications")
-            }
-          >
-            🔔 Notifications / échanges
-          </button>
-        </div>
-      </div>
-    );
+  onClick={() =>
+    openSection("notifications")
   }
+>
+  🔔 Notifications / échanges
+</button>
+
+<button
+  onClick={() => {
+    openSection("admin-control");
+    loadAdminControlData();
+  }}
+>
+  👑 Contrôle total
+</button>
+</div>
+</div>
+);
+}
 
   function renderDashboard() {
     return (
@@ -1880,7 +2019,316 @@ export default function AdminDashboard({ session, onLogout }) {
       </>
     );
   }
+  function renderAdminControl() {
+    return (
+      <>
+        <div className="notice">
+          <h2>👑 Contrôle total</h2>
 
+          <p>
+            Vue globale de l'activité de tous les
+            utilisateurs de l'application.
+          </p>
+
+          {adminControlLoading && (
+            <p>⏳ Chargement des données...</p>
+          )}
+        </div>
+
+        <div className="grid">
+          <button
+            onClick={() =>
+              setAdminControlTab("documents")
+            }
+          >
+            📄 Documents ({adminDocuments.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab("exercises")
+            }
+          >
+            📝 Exercices ({adminExercises.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab("attendance")
+            }
+          >
+            🕘 Présences ({adminAttendance.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab("notifications")
+            }
+          >
+            🔔 Activités ({adminNotifications.length})
+          </button>
+        </div>
+
+        {adminControlTab === "documents" && (
+          <div className="notice">
+            <h3>📄 Tous les documents</h3>
+
+            {adminDocuments.length === 0 ? (
+              <p>Aucun document trouvé.</p>
+            ) : (
+              <div className="grid">
+                {adminDocuments.map((document) => (
+                  <div
+                    className="stat"
+                    key={document.id}
+                  >
+                    <strong>
+                      📄 {document.title}
+                    </strong>
+
+                    <span>
+                      Type :{" "}
+                      {document.document_type}
+                    </span>
+
+                    <span>
+                      Professeur :{" "}
+                      {getTeacherName(
+                        document.teacher_id
+                      )}
+                    </span>
+
+                    <span>
+                      Classe :{" "}
+                      {getClassName(
+                        document.class_id
+                      )}
+                    </span>
+
+                    <span>
+                      Matière :{" "}
+                      {getSubjectName(
+                        document.subject_id
+                      )}
+                    </span>
+
+                    <span>
+                      📅{" "}
+                      {formatDate(
+                        document.created_at
+                      )}
+                    </span>
+
+                    {document.file_url && (
+                      <a
+                        href={document.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        📥 Ouvrir le document
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab === "exercises" && (
+          <div className="notice">
+            <h3>📝 Tous les exercices</h3>
+
+            {adminExercises.length === 0 ? (
+              <p>Aucun exercice trouvé.</p>
+            ) : (
+              <div className="grid">
+                {adminExercises.map((exercise) => (
+                  <div
+                    className="stat"
+                    key={exercise.id}
+                  >
+                    <strong>
+                      📝 {exercise.title}
+                    </strong>
+
+                    <span>
+                      Professeur :{" "}
+                      {getTeacherName(
+                        exercise.teacher_id
+                      )}
+                    </span>
+
+                    <span>
+                      École :{" "}
+                      {getSchoolName(
+                        exercise.school_id
+                      )}
+                    </span>
+
+                    <span>
+                      Classe :{" "}
+                      {getClassName(
+                        exercise.class_id
+                      )}
+                    </span>
+
+                    <span>
+                      Matière :{" "}
+                      {getSubjectName(
+                        exercise.subject_id
+                      )}
+                    </span>
+
+                    <span>
+                      Statut :{" "}
+                      {exercise.published
+                        ? "Publié"
+                        : "Brouillon"}
+                    </span>
+
+                    <span>
+                      📅{" "}
+                      {formatDate(
+                        exercise.created_at
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab === "attendance" && (
+          <div className="notice">
+            <h3>🕘 Toutes les présences</h3>
+
+            {adminAttendance.length === 0 ? (
+              <p>
+                Aucune présence enregistrée.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminAttendance.map((attendance) => (
+                  <div
+                    className="stat"
+                    key={attendance.id}
+                  >
+                    <strong>
+                      👨‍🎓{" "}
+                      {getStudentName(
+                        attendance.student_id
+                      )}
+                    </strong>
+
+                    <span>
+                      📅 Date :{" "}
+                      {attendance.date ||
+                        "Non renseignée"}
+                    </span>
+
+                    <span>
+                      🟢 Arrivée :{" "}
+                      {attendance.arrival_time ||
+                        "Non renseignée"}
+                    </span>
+
+                    <span>
+                      🔴 Départ :{" "}
+                      {attendance.departure_time ||
+                        "Non renseigné"}
+                    </span>
+
+                    <span>
+                      Statut :{" "}
+                      {attendance.status ||
+                        "Non renseigné"}
+                    </span>
+
+                    <span>
+                      Enregistré par :{" "}
+                      {attendance.recorded_by ||
+                        "Non renseigné"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab === "notifications" && (
+          <div className="notice">
+            <h3>🔔 Activités / notifications</h3>
+
+            {adminNotifications.length === 0 ? (
+              <p>
+                Aucune activité trouvée.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminNotifications.map(
+                  (notification) => (
+                    <div
+                      className="stat"
+                      key={notification.id}
+                    >
+                      <strong>
+                        🔔{" "}
+                        {notification.title ||
+                          "Notification"}
+                      </strong>
+
+                      <span>
+                        Type :{" "}
+                        {notification.type ||
+                          "Non renseigné"}
+                      </span>
+
+                      <span>
+                        Destinataire :{" "}
+                        {notification.recipient_id ||
+                          "Non renseigné"}
+                      </span>
+
+                      {notification.student_id && (
+                        <span>
+                          Élève :{" "}
+                          {getStudentName(
+                            notification.student_id
+                          )}
+                        </span>
+                      )}
+
+                      <span>
+                        {notification.message ||
+                          "Aucun message"}
+                      </span>
+
+                      <span>
+                        État :{" "}
+                        {notification.read
+                          ? "Lu"
+                          : "Non lu"}
+                      </span>
+
+                      <span>
+                        📅{" "}
+                        {formatDate(
+                          notification.created_at
+                        )}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
   function renderActiveSection() {
     switch (activeSection) {
       case "teachers":
@@ -1912,6 +2360,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       case "notifications":
         return renderNotifications();
+   
+      case "admin-control":
+       return renderAdminControl();
 
       default:
         return renderDashboard();

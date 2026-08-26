@@ -9,12 +9,14 @@ export default function AdminDashboard({ session, onLogout }) {
     schools: 0,
     classes: 0,
     subjects: 0,
+    documents: 0,
   });
 
   const [teachers, setTeachers] = useState([]);
   const [schools, setSchools] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -69,6 +71,7 @@ export default function AdminDashboard({ session, onLogout }) {
         schoolsResult,
         classesResult,
         subjectsResult,
+        documentsResult,
       ] = await Promise.all([
         supabase
           .from("profiles")
@@ -109,6 +112,23 @@ export default function AdminDashboard({ session, onLogout }) {
           .from("subjects")
           .select("id, name")
           .order("name"),
+
+        supabase
+          .from("documents")
+          .select(`
+            id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            document_type,
+            file_url,
+            created_at
+          `)
+          .order("created_at", {
+            ascending: false,
+          }),
       ]);
 
       const errors = [
@@ -118,6 +138,7 @@ export default function AdminDashboard({ session, onLogout }) {
         schoolsResult.error,
         classesResult.error,
         subjectsResult.error,
+        documentsResult.error,
       ].filter(Boolean);
 
       if (errors.length > 0) {
@@ -128,6 +149,7 @@ export default function AdminDashboard({ session, onLogout }) {
       setSchools(schoolsResult.data || []);
       setClasses(classesResult.data || []);
       setSubjects(subjectsResult.data || []);
+      setDocuments(documentsResult.data || []);
 
       setStats({
         teachers: teachersResult.data?.length || 0,
@@ -136,6 +158,7 @@ export default function AdminDashboard({ session, onLogout }) {
         schools: schoolsResult.data?.length || 0,
         classes: classesResult.data?.length || 0,
         subjects: subjectsResult.data?.length || 0,
+        documents: documentsResult.data?.length || 0,
       });
     } catch (error) {
       console.error(error);
@@ -569,6 +592,40 @@ export default function AdminDashboard({ session, onLogout }) {
     );
   }
 
+  function getTeacherName(teacherId) {
+    const teacher = teachers.find(
+      (item) => item.id === teacherId
+    );
+
+    return (
+      teacher?.full_name ||
+      "Professeur inconnu"
+    );
+  }
+
+  function getClassName(classId) {
+    const classItem = classes.find(
+      (item) => item.id === classId
+    );
+
+    return (
+      classItem?.name ||
+      "Classe inconnue"
+    );
+  }
+
+  function getSubjectName(subjectId) {
+    const subject = subjects.find(
+      (item) =>
+        Number(item.id) === Number(subjectId)
+    );
+
+    return (
+      subject?.name ||
+      "Matière inconnue"
+    );
+  }
+
   function startEditTeacher(teacher) {
     setEditingTeacher(teacher);
 
@@ -666,6 +723,8 @@ export default function AdminDashboard({ session, onLogout }) {
           </p>
         )}
 
+        {/* STATISTIQUES */}
+
         <div className="grid">
 
           <div className="stat">
@@ -719,6 +778,15 @@ export default function AdminDashboard({ session, onLogout }) {
             </strong>
             <span>
               Matières
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.documents}
+            </strong>
+            <span>
+              Documents
             </span>
           </div>
 
@@ -1321,6 +1389,99 @@ export default function AdminDashboard({ session, onLogout }) {
             )
           )}
         </div>
+
+        {/* DOCUMENTS / LEÇONS */}
+
+        <div className="notice">
+          <h2>
+            📖 Tous les documents et leçons
+          </h2>
+
+          <p>
+            Vue globale des documents publiés
+            par les professeurs.
+          </p>
+        </div>
+
+        {documents.length === 0 ? (
+          <div className="notice">
+            <p>
+              Aucun document n'a encore été
+              publié.
+            </p>
+          </div>
+        ) : (
+          <div className="grid">
+            {documents.map(
+              (document) => (
+                <div
+                  className="stat"
+                  key={document.id}
+                >
+                  <strong>
+                    📄 {document.title}
+                  </strong>
+
+                  <span>
+                    Type :{" "}
+                    {document.document_type}
+                  </span>
+
+                  <span>
+                    👨‍🏫 Professeur :{" "}
+                    {getTeacherName(
+                      document.teacher_id
+                    )}
+                  </span>
+
+                  <span>
+                    🏫 Classe :{" "}
+                    {getClassName(
+                      document.class_id
+                    )}
+                  </span>
+
+                  <span>
+                    📖 Matière :{" "}
+                    {getSubjectName(
+                      document.subject_id
+                    )}
+                  </span>
+
+                  {document.description && (
+                    <span>
+                      📝{" "}
+                      {document.description}
+                    </span>
+                  )}
+
+                  {document.file_url && (
+                    <a
+                      href={
+                        document.file_url
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      📂 Ouvrir le document
+                    </a>
+                  )}
+
+                  <span>
+                    📅{" "}
+                    {document.created_at
+                      ? new Date(
+                          document.created_at
+                        ).toLocaleDateString(
+                          "fr-FR"
+                        )
+                      : "Date inconnue"}
+                  </span>
+                </div>
+              )
+            )}
+          </div>
+        )}
 
       </section>
     </main>

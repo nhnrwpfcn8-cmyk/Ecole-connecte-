@@ -17,165 +17,96 @@ export default function AdminDashboard({ session, onLogout }) {
   const [classes, setClasses] = useState([]);
 
   const [loading, setLoading] = useState(true);
-
-  const [creatingTeacher, setCreatingTeacher] =
-    useState(false);
-
-  const [savingTeacher, setSavingTeacher] =
-    useState(false);
-
-  const [creatingStudent, setCreatingStudent] =
-    useState(false);
-
-  const [savingStudent, setSavingStudent] =
-    useState(false);
-
-  const [showTeacherForm, setShowTeacherForm] =
-    useState(false);
-
-  const [showStudentForm, setShowStudentForm] =
-    useState(false);
-
-  const [editingTeacher, setEditingTeacher] =
-    useState(null);
-
-  const [editingStudent, setEditingStudent] =
-    useState(null);
-
   const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  /* =========================
-     PROFESSEUR
-  ========================== */
+  const [showTeacherForm, setShowTeacherForm] = useState(false);
+  const [showStudentForm, setShowStudentForm] = useState(false);
+  const [showSchoolForm, setShowSchoolForm] = useState(false);
 
-  const [teacherName, setTeacherName] =
-    useState("");
+  const [editingTeacher, setEditingTeacher] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editingSchool, setEditingSchool] = useState(null);
 
-  const [teacherEmail, setTeacherEmail] =
-    useState("");
+  const [creatingTeacher, setCreatingTeacher] = useState(false);
+  const [savingTeacher, setSavingTeacher] = useState(false);
+  const [creatingStudent, setCreatingStudent] = useState(false);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [savingSchool, setSavingSchool] = useState(false);
 
-  const [teacherPhone, setTeacherPhone] =
-    useState("");
+  const [teacherName, setTeacherName] = useState("");
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [teacherPhone, setTeacherPhone] = useState("");
 
-  /* =========================
-     ÉLÈVE
-  ========================== */
+  const [studentFirstName, setStudentFirstName] = useState("");
+  const [studentLastName, setStudentLastName] = useState("");
+  const [studentSchoolId, setStudentSchoolId] = useState("");
+  const [studentClassId, setStudentClassId] = useState("");
+  const [studentCode, setStudentCode] = useState("");
 
-  const [studentFirstName, setStudentFirstName] =
-    useState("");
-
-  const [studentLastName, setStudentLastName] =
-    useState("");
-
-  const [studentSchoolId, setStudentSchoolId] =
-    useState("");
-
-  const [studentClassId, setStudentClassId] =
-    useState("");
-
-  const [studentCode, setStudentCode] =
-    useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [schoolAddress, setSchoolAddress] = useState("");
+  const [schoolCity, setSchoolCity] = useState("");
+  const [schoolPhone, setSchoolPhone] = useState("");
+  const [schoolEmail, setSchoolEmail] = useState("");
 
   useEffect(() => {
     loadData();
   }, []);
-
-  /* =========================
-     CHARGEMENT DES DONNÉES
-  ========================== */
 
   async function loadData() {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      const teachersResponse =
-        await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, phone, role, is_active"
-          )
-          .eq("role", "teacher")
-          .order("full_name");
+      const teachersResponse = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, role, is_active")
+        .eq("role", "teacher")
+        .order("full_name");
 
-      if (teachersResponse.error) {
-        throw teachersResponse.error;
-      }
+      if (teachersResponse.error) throw teachersResponse.error;
 
-      const studentsResponse =
-        await supabase
-          .from("students")
-          .select(
-            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
-          )
-          .order("created_at", {
-            ascending: false,
-          });
+      const studentsResponse = await supabase
+        .from("students")
+        .select(
+          "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
+        )
+        .order("created_at", { ascending: false });
 
-      if (studentsResponse.error) {
-        throw studentsResponse.error;
-      }
+      if (studentsResponse.error) throw studentsResponse.error;
 
-      const schoolsResponse =
-        await supabase
-          .from("schools")
-          .select("id, name")
-          .order("name");
+      const schoolsResponse = await supabase
+        .from("schools")
+        .select("id, name, address, city, phone, email, created_at")
+        .order("name");
 
-      if (schoolsResponse.error) {
-        throw schoolsResponse.error;
-      }
+      if (schoolsResponse.error) throw schoolsResponse.error;
 
-      const classesResponse =
-        await supabase
-          .from("classes")
-          .select(
-            "id, school_id, name, level"
-          )
-          .order("name");
+      const classesResponse = await supabase
+        .from("classes")
+        .select("id, school_id, name, level")
+        .order("name");
 
-      if (classesResponse.error) {
-        throw classesResponse.error;
-      }
+      if (classesResponse.error) throw classesResponse.error;
 
-      const parentsResponse =
-        await supabase
-          .from("profiles")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("role", "parent");
+      const parentsResponse = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "parent");
 
-      if (parentsResponse.error) {
-        throw parentsResponse.error;
-      }
+      if (parentsResponse.error) throw parentsResponse.error;
 
-      const subjectsResponse =
-        await supabase
-          .from("subjects")
-          .select("id", {
-            count: "exact",
-            head: true,
-          });
+      const subjectsResponse = await supabase
+        .from("subjects")
+        .select("id", { count: "exact", head: true });
 
-      if (subjectsResponse.error) {
-        throw subjectsResponse.error;
-      }
+      if (subjectsResponse.error) throw subjectsResponse.error;
 
-      const teacherList =
-        teachersResponse.data || [];
-
-      const studentList =
-        studentsResponse.data || [];
-
-      const schoolList =
-        schoolsResponse.data || [];
-
-      const classList =
-        classesResponse.data || [];
+      const teacherList = teachersResponse.data || [];
+      const studentList = studentsResponse.data || [];
+      const schoolList = schoolsResponse.data || [];
+      const classList = classesResponse.data || [];
 
       setTeachers(teacherList);
       setStudents(studentList);
@@ -185,22 +116,15 @@ export default function AdminDashboard({ session, onLogout }) {
       setStats({
         teachers: teacherList.length,
         students: studentList.length,
-        parents:
-          parentsResponse.count || 0,
+        parents: parentsResponse.count || 0,
         schools: schoolList.length,
         classes: classList.length,
-        subjects:
-          subjectsResponse.count || 0,
+        subjects: subjectsResponse.count || 0,
       });
     } catch (error) {
-      console.error(
-        "Erreur chargement administration:",
-        error
-      );
-
+      console.error("Erreur chargement :", error);
       setErrorMessage(
-        error.message ||
-          "Impossible de charger les données."
+        error.message || "Impossible de charger les données."
       );
     } finally {
       setLoading(false);
@@ -208,114 +132,74 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   /* =========================
-     CRÉER PROFESSEUR
+     PROFESSEURS
   ========================== */
 
   async function createTeacher() {
     setMessage("");
     setErrorMessage("");
 
-    const cleanName =
-      teacherName.trim();
+    const name = teacherName.trim();
+    const email = teacherEmail.trim().toLowerCase();
+    const phone = teacherPhone.trim();
 
-    const cleanEmail =
-      teacherEmail
-        .trim()
-        .toLowerCase();
-
-    const cleanPhone =
-      teacherPhone.trim();
-
-    if (!cleanName) {
-      setErrorMessage(
-        "Veuillez saisir le nom complet du professeur."
-      );
+    if (!name) {
+      setErrorMessage("Le nom du professeur est obligatoire.");
       return;
     }
 
-    if (
-      !cleanEmail ||
-      !cleanEmail.includes("@")
-    ) {
-      setErrorMessage(
-        "Veuillez saisir une adresse e-mail valide."
-      );
+    if (!email || !email.includes("@")) {
+      setErrorMessage("Veuillez saisir une adresse e-mail valide.");
       return;
     }
 
     setCreatingTeacher(true);
 
     try {
-      const { data, error } =
-        await supabase.functions.invoke(
-          "create-user",
-          {
-            body: {
-              full_name: cleanName,
-              email: cleanEmail,
-              phone: cleanPhone,
-              role: "teacher",
-            },
-          }
-        );
+      const { data, error } = await supabase.functions.invoke(
+        "create-user",
+        {
+          body: {
+            full_name: name,
+            email,
+            phone,
+            role: "teacher",
+          },
+        }
+      );
 
-      if (error) {
-        throw new Error(
-          error.message ||
-            "Impossible de contacter le serveur."
-        );
-      }
+      if (error) throw new Error(error.message);
 
       if (!data?.success) {
         throw new Error(
-          data?.error ||
-            "La création du professeur a échoué."
+          data?.error || "La création du professeur a échoué."
         );
       }
 
-      setMessage(
-        "Professeur créé avec succès."
-      );
+      setMessage("Professeur créé avec succès.");
 
       setTeacherName("");
       setTeacherEmail("");
       setTeacherPhone("");
-
       setShowTeacherForm(false);
 
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur création professeur:",
-        error
-      );
-
+      console.error(error);
       setErrorMessage(
-        error.message ||
-          "Impossible de créer le professeur."
+        error.message || "Impossible de créer le professeur."
       );
     } finally {
       setCreatingTeacher(false);
     }
   }
 
-  /* =========================
-     MODIFIER PROFESSEUR
-  ========================== */
-
   function startEditTeacher(teacher) {
+    setEditingTeacher(teacher);
+    setTeacherName(teacher.full_name || "");
+    setTeacherPhone(teacher.phone || "");
     setMessage("");
     setErrorMessage("");
-
-    setEditingTeacher(teacher);
-
-    setTeacherName(
-      teacher.full_name || ""
-    );
-
-    setTeacherPhone(
-      teacher.phone || ""
-    );
   }
 
   function cancelEditTeacher() {
@@ -325,263 +209,162 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function saveTeacher() {
-    if (!editingTeacher) {
-      return;
-    }
+    if (!editingTeacher) return;
 
-    setMessage("");
-    setErrorMessage("");
+    const name = teacherName.trim();
+    const phone = teacherPhone.trim();
 
-    const cleanName =
-      teacherName.trim();
-
-    const cleanPhone =
-      teacherPhone.trim();
-
-    if (!cleanName) {
-      setErrorMessage(
-        "Le nom complet est obligatoire."
-      );
+    if (!name) {
+      setErrorMessage("Le nom est obligatoire.");
       return;
     }
 
     setSavingTeacher(true);
+    setMessage("");
+    setErrorMessage("");
 
     try {
-      const { error } =
-        await supabase
-          .from("profiles")
-          .update({
-            full_name: cleanName,
-            phone:
-              cleanPhone || null,
-          })
-          .eq(
-            "id",
-            editingTeacher.id
-          )
-          .eq("role", "teacher");
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: name,
+          phone: phone || null,
+        })
+        .eq("id", editingTeacher.id)
+        .eq("role", "teacher");
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      setMessage(
-        "Professeur modifié avec succès."
-      );
-
+      setMessage("Professeur modifié avec succès.");
       cancelEditTeacher();
-
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur modification professeur:",
-        error
-      );
-
       setErrorMessage(
-        error.message ||
-          "Impossible de modifier le professeur."
+        error.message || "Impossible de modifier le professeur."
       );
     } finally {
       setSavingTeacher(false);
     }
   }
 
-  /* =========================
-     ACTIVER / DÉSACTIVER PROF
-  ========================== */
+  async function toggleTeacherStatus(teacher) {
+    const newStatus = !teacher.is_active;
 
-  async function toggleTeacherStatus(
-    teacher
-  ) {
+    const confirmation = window.confirm(
+      newStatus
+        ? `Réactiver ${teacher.full_name || "ce professeur"} ?`
+        : `Désactiver ${teacher.full_name || "ce professeur"} ?`
+    );
+
+    if (!confirmation) return;
+
     setMessage("");
     setErrorMessage("");
 
-    const newStatus =
-      !teacher.is_active;
-
-    const confirmation =
-      window.confirm(
-        newStatus
-          ? `Voulez-vous réactiver ${
-              teacher.full_name ||
-              "ce professeur"
-            } ?`
-          : `Voulez-vous désactiver ${
-              teacher.full_name ||
-              "ce professeur"
-            } ?`
-      );
-
-    if (!confirmation) {
-      return;
-    }
-
     try {
-      const { error } =
-        await supabase
-          .from("profiles")
-          .update({
-            is_active: newStatus,
-          })
-          .eq(
-            "id",
-            teacher.id
-          )
-          .eq("role", "teacher");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: newStatus })
+        .eq("id", teacher.id)
+        .eq("role", "teacher");
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setMessage(
         newStatus
-          ? "Professeur réactivé avec succès."
-          : "Professeur désactivé avec succès."
+          ? "Professeur réactivé."
+          : "Professeur désactivé."
       );
 
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur statut professeur:",
-        error
-      );
-
       setErrorMessage(
-        error.message ||
-          "Impossible de modifier le statut."
+        error.message || "Impossible de modifier le statut."
       );
     }
   }
 
   /* =========================
-     CRÉER ÉLÈVE
+     ÉLÈVES
   ========================== */
 
   async function createStudent() {
     setMessage("");
     setErrorMessage("");
 
-    const firstName =
-      studentFirstName.trim();
-
-    const lastName =
-      studentLastName.trim();
+    const firstName = studentFirstName.trim();
+    const lastName = studentLastName.trim();
 
     if (!firstName) {
-      setErrorMessage(
-        "Le prénom de l'élève est obligatoire."
-      );
+      setErrorMessage("Le prénom est obligatoire.");
       return;
     }
 
     if (!lastName) {
-      setErrorMessage(
-        "Le nom de l'élève est obligatoire."
-      );
+      setErrorMessage("Le nom est obligatoire.");
       return;
     }
 
     if (!studentSchoolId) {
-      setErrorMessage(
-        "Veuillez sélectionner une école."
-      );
+      setErrorMessage("Veuillez choisir une école.");
       return;
     }
 
     if (!studentClassId) {
-      setErrorMessage(
-        "Veuillez sélectionner une classe."
-      );
+      setErrorMessage("Veuillez choisir une classe.");
       return;
     }
 
     setCreatingStudent(true);
 
     try {
-      const { error } =
-        await supabase
-          .from("students")
-          .insert({
-            first_name: firstName,
-            last_name: lastName,
-            school_id:
-              studentSchoolId,
-            class_id:
-              studentClassId,
-            student_code:
-              studentCode.trim() ||
-              null,
-            active: true,
-          });
+      const { error } = await supabase
+        .from("students")
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          school_id: studentSchoolId,
+          class_id: studentClassId,
+          student_code: studentCode.trim() || null,
+          active: true,
+        });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      setMessage(
-        "Élève créé avec succès."
-      );
+      setMessage("Élève créé avec succès.");
 
       setStudentFirstName("");
       setStudentLastName("");
       setStudentSchoolId("");
       setStudentClassId("");
       setStudentCode("");
-
       setShowStudentForm(false);
 
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur création élève:",
-        error
-      );
-
       setErrorMessage(
-        error.message ||
-          "Impossible de créer l'élève."
+        error.message || "Impossible de créer l'élève."
       );
     } finally {
       setCreatingStudent(false);
     }
   }
 
-  /* =========================
-     MODIFIER ÉLÈVE
-  ========================== */
-
   function startEditStudent(student) {
-    setMessage("");
-    setErrorMessage("");
-
     setEditingStudent(student);
 
-    setStudentFirstName(
-      student.first_name || ""
-    );
+    setStudentFirstName(student.first_name || "");
+    setStudentLastName(student.last_name || "");
+    setStudentSchoolId(student.school_id || "");
+    setStudentClassId(student.class_id || "");
+    setStudentCode(student.student_code || "");
 
-    setStudentLastName(
-      student.last_name || ""
-    );
-
-    setStudentSchoolId(
-      student.school_id || ""
-    );
-
-    setStudentClassId(
-      student.class_id || ""
-    );
-
-    setStudentCode(
-      student.student_code || ""
-    );
+    setMessage("");
+    setErrorMessage("");
   }
 
   function cancelEditStudent() {
     setEditingStudent(null);
-
     setStudentFirstName("");
     setStudentLastName("");
     setStudentSchoolId("");
@@ -590,224 +373,244 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function saveStudent() {
-    if (!editingStudent) {
+    if (!editingStudent) return;
+
+    if (!studentFirstName.trim()) {
+      setErrorMessage("Le prénom est obligatoire.");
       return;
     }
 
-    setMessage("");
-    setErrorMessage("");
-
-    const firstName =
-      studentFirstName.trim();
-
-    const lastName =
-      studentLastName.trim();
-
-    if (!firstName) {
-      setErrorMessage(
-        "Le prénom est obligatoire."
-      );
-      return;
-    }
-
-    if (!lastName) {
-      setErrorMessage(
-        "Le nom est obligatoire."
-      );
+    if (!studentLastName.trim()) {
+      setErrorMessage("Le nom est obligatoire.");
       return;
     }
 
     if (!studentSchoolId) {
-      setErrorMessage(
-        "Veuillez sélectionner une école."
-      );
+      setErrorMessage("Veuillez choisir une école.");
       return;
     }
 
     if (!studentClassId) {
-      setErrorMessage(
-        "Veuillez sélectionner une classe."
-      );
+      setErrorMessage("Veuillez choisir une classe.");
       return;
     }
 
     setSavingStudent(true);
+    setMessage("");
+    setErrorMessage("");
 
     try {
-      const { error } =
-        await supabase
-          .from("students")
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-            school_id:
-              studentSchoolId,
-            class_id:
-              studentClassId,
-            student_code:
-              studentCode.trim() ||
-              null,
-          })
-          .eq(
-            "id",
-            editingStudent.id
-          );
+      const { error } = await supabase
+        .from("students")
+        .update({
+          first_name: studentFirstName.trim(),
+          last_name: studentLastName.trim(),
+          school_id: studentSchoolId,
+          class_id: studentClassId,
+          student_code: studentCode.trim() || null,
+        })
+        .eq("id", editingStudent.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      setMessage(
-        "Élève modifié avec succès."
-      );
-
+      setMessage("Élève modifié avec succès.");
       cancelEditStudent();
-
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur modification élève:",
-        error
-      );
-
       setErrorMessage(
-        error.message ||
-          "Impossible de modifier l'élève."
+        error.message || "Impossible de modifier l'élève."
       );
     } finally {
       setSavingStudent(false);
     }
   }
 
-  /* =========================
-     ACTIVER / DÉSACTIVER ÉLÈVE
-  ========================== */
+  async function toggleStudentStatus(student) {
+    const newStatus = student.active === false;
 
-  async function toggleStudentStatus(
-    student
-  ) {
-    setMessage("");
-    setErrorMessage("");
+    const fullName =
+      `${student.first_name || ""} ${student.last_name || ""}`.trim();
 
-    const currentStatus =
-      student.active !== false;
+    const confirmation = window.confirm(
+      newStatus
+        ? `Réactiver ${fullName || "cet élève"} ?`
+        : `Désactiver ${fullName || "cet élève"} ?`
+    );
 
-    const newStatus =
-      !currentStatus;
-
-    const studentName =
-      `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim();
-
-    const confirmation =
-      window.confirm(
-        newStatus
-          ? `Voulez-vous réactiver ${
-              studentName ||
-              "cet élève"
-            } ?`
-          : `Voulez-vous désactiver ${
-              studentName ||
-              "cet élève"
-            } ?`
-      );
-
-    if (!confirmation) {
-      return;
-    }
+    if (!confirmation) return;
 
     try {
-      const { error } =
-        await supabase
-          .from("students")
-          .update({
-            active: newStatus,
-          })
-          .eq(
-            "id",
-            student.id
-          );
+      const { error } = await supabase
+        .from("students")
+        .update({ active: newStatus })
+        .eq("id", student.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setMessage(
         newStatus
-          ? "Élève réactivé avec succès."
-          : "Élève désactivé avec succès."
+          ? "Élève réactivé."
+          : "Élève désactivé."
       );
 
       await loadData();
     } catch (error) {
-      console.error(
-        "Erreur statut élève:",
-        error
-      );
-
       setErrorMessage(
-        error.message ||
-          "Impossible de modifier le statut de l'élève."
+        error.message || "Impossible de modifier l'élève."
       );
     }
   }
 
   /* =========================
-     NOM ÉCOLE
+     ÉCOLES
+  ========================== */
+
+  function resetSchoolForm() {
+    setSchoolName("");
+    setSchoolAddress("");
+    setSchoolCity("");
+    setSchoolPhone("");
+    setSchoolEmail("");
+    setEditingSchool(null);
+  }
+
+  function startEditSchool(school) {
+    setEditingSchool(school);
+
+    setSchoolName(school.name || "");
+    setSchoolAddress(school.address || "");
+    setSchoolCity(school.city || "");
+    setSchoolPhone(school.phone || "");
+    setSchoolEmail(school.email || "");
+
+    setShowSchoolForm(true);
+    setMessage("");
+    setErrorMessage("");
+  }
+
+  async function saveSchool() {
+    const name = schoolName.trim();
+
+    if (!name) {
+      setErrorMessage("Le nom de l'école est obligatoire.");
+      return;
+    }
+
+    setSavingSchool(true);
+    setMessage("");
+    setErrorMessage("");
+
+    try {
+      const schoolData = {
+        name,
+        address: schoolAddress.trim() || null,
+        city: schoolCity.trim() || null,
+        phone: schoolPhone.trim() || null,
+        email: schoolEmail.trim() || null,
+      };
+
+      if (editingSchool) {
+        const { error } = await supabase
+          .from("schools")
+          .update(schoolData)
+          .eq("id", editingSchool.id);
+
+        if (error) throw error;
+
+        setMessage("École modifiée avec succès.");
+      } else {
+        const { error } = await supabase
+          .from("schools")
+          .insert(schoolData);
+
+        if (error) throw error;
+
+        setMessage("École créée avec succès.");
+      }
+
+      resetSchoolForm();
+      setShowSchoolForm(false);
+
+      await loadData();
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error.message || "Impossible d'enregistrer l'école."
+      );
+    } finally {
+      setSavingSchool(false);
+    }
+  }
+
+  async function deleteSchool(school) {
+    const hasStudents = students.some(
+      (student) => student.school_id === school.id
+    );
+
+    if (hasStudents) {
+      setErrorMessage(
+        "Cette école possède encore des élèves. Modifiez ou déplacez les élèves avant de supprimer l'école."
+      );
+      return;
+    }
+
+    const confirmation = window.confirm(
+      `Supprimer définitivement l'école "${school.name}" ?`
+    );
+
+    if (!confirmation) return;
+
+    setMessage("");
+    setErrorMessage("");
+
+    try {
+      const { error } = await supabase
+        .from("schools")
+        .delete()
+        .eq("id", school.id);
+
+      if (error) throw error;
+
+      setMessage("École supprimée avec succès.");
+
+      await loadData();
+    } catch (error) {
+      setErrorMessage(
+        error.message || "Impossible de supprimer l'école."
+      );
+    }
+  }
+
+  /* =========================
+     OUTILS
   ========================== */
 
   function getSchoolName(schoolId) {
-    const school =
-      schools.find(
-        (item) =>
-          item.id === schoolId
-      );
-
-    return (
-      school?.name ||
-      "École non définie"
+    const school = schools.find(
+      (item) => item.id === schoolId
     );
+
+    return school?.name || "École non définie";
   }
 
-  /* =========================
-     NOM CLASSE
-  ========================== */
-
   function getClassName(classId) {
-    const item =
-      classes.find(
-        (classItem) =>
-          classItem.id === classId
-      );
+    const item = classes.find(
+      (classItem) => classItem.id === classId
+    );
 
-    if (!item) {
-      return "Classe non définie";
-    }
+    if (!item) return "Classe non définie";
 
     return `${item.name || ""}${
-      item.level
-        ? ` - ${item.level}`
-        : ""
+      item.level ? ` - ${item.level}` : ""
     }`;
   }
 
-  /* =========================
-     FILTRER LES CLASSES
-  ========================== */
-
-  const availableClasses =
-    studentSchoolId
-      ? classes.filter(
-          (item) =>
-            item.school_id ===
-            studentSchoolId
-        )
-      : [];
-
-  /* =========================
-     CHARGEMENT
-  ========================== */
+  const availableClasses = studentSchoolId
+    ? classes.filter(
+        (item) => item.school_id === studentSchoolId
+      )
+    : [];
 
   if (loading) {
     return (
@@ -817,15 +620,13 @@ export default function AdminDashboard({ session, onLogout }) {
     );
   }
 
-  /* =========================
-     INTERFACE
-  ========================== */
-
   return (
     <main className="page">
       <section className="card dashboard">
 
-        {/* EN-TÊTE */}
+        {/* =========================
+            EN-TÊTE
+        ========================== */}
 
         <div className="top">
           <div>
@@ -850,8 +651,6 @@ export default function AdminDashboard({ session, onLogout }) {
           </button>
         </div>
 
-        {/* MESSAGES */}
-
         {message && (
           <p className="message">
             {message}
@@ -864,80 +663,242 @@ export default function AdminDashboard({ session, onLogout }) {
           </p>
         )}
 
-        {/* STATISTIQUES */}
+        {/* =========================
+            STATISTIQUES
+        ========================== */}
 
         <div className="grid">
 
           <div className="stat">
-            <strong>
-              {stats.teachers}
-            </strong>
-            <span>
-              Professeurs
-            </span>
+            <strong>{stats.teachers}</strong>
+            <span>Professeurs</span>
           </div>
 
           <div className="stat">
-            <strong>
-              {stats.students}
-            </strong>
-            <span>
-              Élèves
-            </span>
+            <strong>{stats.students}</strong>
+            <span>Élèves</span>
           </div>
 
           <div className="stat">
-            <strong>
-              {stats.parents}
-            </strong>
-            <span>
-              Parents
-            </span>
+            <strong>{stats.parents}</strong>
+            <span>Parents</span>
           </div>
 
           <div className="stat">
-            <strong>
-              {stats.schools}
-            </strong>
-            <span>
-              Écoles
-            </span>
+            <strong>{stats.schools}</strong>
+            <span>Écoles</span>
           </div>
 
           <div className="stat">
-            <strong>
-              {stats.classes}
-            </strong>
-            <span>
-              Classes
-            </span>
+            <strong>{stats.classes}</strong>
+            <span>Classes</span>
           </div>
 
           <div className="stat">
-            <strong>
-              {stats.subjects}
-            </strong>
-            <span>
-              Matières
-            </span>
+            <strong>{stats.subjects}</strong>
+            <span>Matières</span>
           </div>
 
         </div>
 
-        {/* GESTION */}
+        {/* =========================
+            ÉCOLES
+        ========================== */}
 
         <div className="notice">
 
-          <h2>
-            Gestion de l'école
-          </h2>
+          <div className="top">
 
-          <p>
-            L'administrateur peut gérer
-            les professeurs, élèves,
-            parents, écoles, classes
-            et matières.
-          </p>
+            <div>
+              <h2>
+                🏫 Écoles
+              </h2>
+
+              <p>
+                {schools.length} école
+                {schools.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (showSchoolForm) {
+                  resetSchoolForm();
+                }
+
+                setShowSchoolForm(
+                  !showSchoolForm
+                );
+              }}
+            >
+              {showSchoolForm
+                ? "Fermer"
+                : "+ Nouvelle école"}
+            </button>
+
+          </div>
+
+          {showSchoolForm && (
+            <div className="card">
+
+              <h2>
+                {editingSchool
+                  ? "✏️ Modifier l'école"
+                  : "🏫 Nouvelle école"}
+              </h2>
+
+              <label>
+                Nom de l'école
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ex : École Connectée Dakar"
+                value={schoolName}
+                onChange={(e) =>
+                  setSchoolName(e.target.value)
+                }
+              />
+
+              <label>
+                Adresse
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ex : Dakar"
+                value={schoolAddress}
+                onChange={(e) =>
+                  setSchoolAddress(e.target.value)
+                }
+              />
+
+              <label>
+                Ville
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ex : Dakar"
+                value={schoolCity}
+                onChange={(e) =>
+                  setSchoolCity(e.target.value)
+                }
+              />
+
+              <label>
+                Téléphone
+              </label>
+
+              <input
+                type="tel"
+                placeholder="Ex : 77 000 00 00"
+                value={schoolPhone}
+                onChange={(e) =>
+                  setSchoolPhone(e.target.value)
+                }
+              />
+
+              <label>
+                E-mail
+              </label>
+
+              <input
+                type="email"
+                placeholder="ecole@email.com"
+                value={schoolEmail}
+                onChange={(e) =>
+                  setSchoolEmail(e.target.value)
+                }
+              />
+
+              <button
+                onClick={saveSchool}
+                disabled={savingSchool}
+              >
+                {savingSchool
+                  ? "Enregistrement..."
+                  : editingSchool
+                  ? "💾 Enregistrer les modifications"
+                  : "🏫 Créer l'école"}
+              </button>
+
+              {editingSchool && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    resetSchoolForm();
+                    setShowSchoolForm(false);
+                  }}
+                >
+                  Annuler
+                </button>
+              )}
+
+            </div>
+          )}
+
+          <div style={{ marginTop: "20px" }}>
+
+            {schools.length === 0 ? (
+              <p>
+                Aucune école enregistrée.
+              </p>
+            ) : (
+              schools.map((school) => (
+                <div
+                  key={school.id}
+                  className="stat"
+                  style={{
+                    marginBottom: "15px",
+                  }}
+                >
+
+                  <strong>
+                    🏫 {school.name}
+                  </strong>
+
+                  <span>
+                    📍 {school.city || "Ville non renseignée"}
+                  </span>
+
+                  <span>
+                    🏠 {school.address || "Adresse non renseignée"}
+                  </span>
+
+                  <span>
+                    📞 {school.phone || "Téléphone non renseigné"}
+                  </span>
+
+                  <span>
+                    ✉️ {school.email || "E-mail non renseigné"}
+                  </span>
+
+                  <div style={{ marginTop: "10px" }}>
+
+                    <button
+                      onClick={() =>
+                        startEditSchool(school)
+                      }
+                    >
+                      ✏️ Modifier
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        deleteSchool(school)
+                      }
+                    >
+                      🗑️ Supprimer
+                    </button>
+
+                  </div>
+
+                </div>
+              ))
+            )}
+
+          </div>
 
         </div>
 
@@ -956,9 +917,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <p>
                 {teachers.length} professeur
-                {teachers.length !== 1
-                  ? "s"
-                  : ""}
+                {teachers.length !== 1 ? "s" : ""}
               </p>
             </div>
 
@@ -967,7 +926,6 @@ export default function AdminDashboard({ session, onLogout }) {
                 setShowTeacherForm(
                   !showTeacherForm
                 );
-
                 setEditingTeacher(null);
               }}
             >
@@ -978,19 +936,12 @@ export default function AdminDashboard({ session, onLogout }) {
 
           </div>
 
-          {/* FORMULAIRE PROF */}
-
           {showTeacherForm && (
             <div className="card">
 
               <h2>
                 Nouveau professeur
               </h2>
-
-              <p>
-                Renseignez les informations
-                du professeur.
-              </p>
 
               <label>
                 Nom complet
@@ -1001,12 +952,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 placeholder="Ex : Mamadou Diop"
                 value={teacherName}
                 onChange={(e) =>
-                  setTeacherName(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingTeacher
+                  setTeacherName(e.target.value)
                 }
               />
 
@@ -1019,12 +965,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 placeholder="professeur@email.com"
                 value={teacherEmail}
                 onChange={(e) =>
-                  setTeacherEmail(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingTeacher
+                  setTeacherEmail(e.target.value)
                 }
               />
 
@@ -1037,20 +978,13 @@ export default function AdminDashboard({ session, onLogout }) {
                 placeholder="Ex : 77 000 00 00"
                 value={teacherPhone}
                 onChange={(e) =>
-                  setTeacherPhone(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingTeacher
+                  setTeacherPhone(e.target.value)
                 }
               />
 
               <button
                 onClick={createTeacher}
-                disabled={
-                  creatingTeacher
-                }
+                disabled={creatingTeacher}
               >
                 {creatingTeacher
                   ? "Création..."
@@ -1059,8 +993,6 @@ export default function AdminDashboard({ session, onLogout }) {
 
             </div>
           )}
-
-          {/* MODIFICATION PROF */}
 
           {editingTeacher && (
             <div className="card">
@@ -1077,9 +1009,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 type="text"
                 value={teacherName}
                 onChange={(e) =>
-                  setTeacherName(
-                    e.target.value
-                  )
+                  setTeacherName(e.target.value)
                 }
               />
 
@@ -1091,17 +1021,13 @@ export default function AdminDashboard({ session, onLogout }) {
                 type="tel"
                 value={teacherPhone}
                 onChange={(e) =>
-                  setTeacherPhone(
-                    e.target.value
-                  )
+                  setTeacherPhone(e.target.value)
                 }
               />
 
               <button
                 onClick={saveTeacher}
-                disabled={
-                  savingTeacher
-                }
+                disabled={savingTeacher}
               >
                 {savingTeacher
                   ? "Enregistrement..."
@@ -1110,9 +1036,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <button
                 className="secondary"
-                onClick={
-                  cancelEditTeacher
-                }
+                onClick={cancelEditTeacher}
               >
                 Annuler
               </button>
@@ -1120,78 +1044,53 @@ export default function AdminDashboard({ session, onLogout }) {
             </div>
           )}
 
-          {/* LISTE PROF */}
+          <div style={{ marginTop: "20px" }}>
 
-          <div
-            style={{
-              marginTop: "20px",
-            }}
-          >
+            {teachers.map((teacher) => (
+              <div
+                key={teacher.id}
+                className="stat"
+                style={{ marginBottom: "15px" }}
+              >
 
-            {teachers.map(
-              (teacher) => (
+                <strong>
+                  {teacher.full_name || "Nom non renseigné"}
+                </strong>
 
-                <div
-                  key={teacher.id}
-                  className="stat"
-                  style={{
-                    marginBottom:
-                      "15px",
-                  }}
-                >
+                <span>
+                  📞 {teacher.phone || "Téléphone non renseigné"}
+                </span>
 
-                  <strong>
-                    {teacher.full_name ||
-                      "Nom non renseigné"}
-                  </strong>
+                <span>
+                  {teacher.is_active
+                    ? "🟢 Actif"
+                    : "🔴 Désactivé"}
+                </span>
 
-                  <span>
-                    📞{" "}
-                    {teacher.phone ||
-                      "Téléphone non renseigné"}
-                  </span>
+                <div style={{ marginTop: "10px" }}>
 
-                  <span>
-                    {teacher.is_active
-                      ? "🟢 Actif"
-                      : "🔴 Désactivé"}
-                  </span>
-
-                  <div
-                    style={{
-                      marginTop:
-                        "10px",
-                    }}
+                  <button
+                    onClick={() =>
+                      startEditTeacher(teacher)
+                    }
                   >
+                    ✏️ Modifier
+                  </button>
 
-                    <button
-                      onClick={() =>
-                        startEditTeacher(
-                          teacher
-                        )
-                      }
-                    >
-                      ✏️ Modifier
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        toggleTeacherStatus(
-                          teacher
-                        )
-                      }
-                    >
-                      {teacher.is_active
-                        ? "🔴 Désactiver"
-                        : "🟢 Réactiver"}
-                    </button>
-
-                  </div>
+                  <button
+                    onClick={() =>
+                      toggleTeacherStatus(teacher)
+                    }
+                  >
+                    {teacher.is_active
+                      ? "🔴 Désactiver"
+                      : "🟢 Réactiver"}
+                  </button>
 
                 </div>
 
-              )
-            )}
+              </div>
+            ))}
 
           </div>
 
@@ -1206,18 +1105,14 @@ export default function AdminDashboard({ session, onLogout }) {
           <div className="top">
 
             <div>
-
               <h2>
                 👨‍🎓 Élèves
               </h2>
 
               <p>
                 {students.length} élève
-                {students.length !== 1
-                  ? "s"
-                  : ""}
+                {students.length !== 1 ? "s" : ""}
               </p>
-
             </div>
 
             <button
@@ -1225,7 +1120,6 @@ export default function AdminDashboard({ session, onLogout }) {
                 setShowStudentForm(
                   !showStudentForm
                 );
-
                 setEditingStudent(null);
               }}
             >
@@ -1236,19 +1130,12 @@ export default function AdminDashboard({ session, onLogout }) {
 
           </div>
 
-          {/* FORMULAIRE ÉLÈVE */}
-
           {showStudentForm && (
             <div className="card">
 
               <h2>
                 Nouvel élève
               </h2>
-
-              <p>
-                Renseignez les informations
-                de l'élève.
-              </p>
 
               <label>
                 Prénom
@@ -1257,16 +1144,9 @@ export default function AdminDashboard({ session, onLogout }) {
               <input
                 type="text"
                 placeholder="Ex : Amadou"
-                value={
-                  studentFirstName
-                }
+                value={studentFirstName}
                 onChange={(e) =>
-                  setStudentFirstName(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingStudent
+                  setStudentFirstName(e.target.value)
                 }
               />
 
@@ -1277,16 +1157,9 @@ export default function AdminDashboard({ session, onLogout }) {
               <input
                 type="text"
                 placeholder="Ex : Diop"
-                value={
-                  studentLastName
-                }
+                value={studentLastName}
                 onChange={(e) =>
-                  setStudentLastName(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingStudent
+                  setStudentLastName(e.target.value)
                 }
               />
 
@@ -1295,36 +1168,24 @@ export default function AdminDashboard({ session, onLogout }) {
               </label>
 
               <select
-                value={
-                  studentSchoolId
-                }
+                value={studentSchoolId}
                 onChange={(e) => {
-                  setStudentSchoolId(
-                    e.target.value
-                  );
-
+                  setStudentSchoolId(e.target.value);
                   setStudentClassId("");
                 }}
-                disabled={
-                  creatingStudent
-                }
               >
-
                 <option value="">
                   Choisir une école
                 </option>
 
-                {schools.map(
-                  (school) => (
-                    <option
-                      key={school.id}
-                      value={school.id}
-                    >
-                      {school.name}
-                    </option>
-                  )
-                )}
-
+                {schools.map((school) => (
+                  <option
+                    key={school.id}
+                    value={school.id}
+                  >
+                    {school.name}
+                  </option>
+                ))}
               </select>
 
               <label>
@@ -1332,40 +1193,29 @@ export default function AdminDashboard({ session, onLogout }) {
               </label>
 
               <select
-                value={
-                  studentClassId
-                }
+                value={studentClassId}
                 onChange={(e) =>
-                  setStudentClassId(
-                    e.target.value
-                  )
+                  setStudentClassId(e.target.value)
                 }
-                disabled={
-                  !studentSchoolId ||
-                  creatingStudent
-                }
+                disabled={!studentSchoolId}
               >
-
                 <option value="">
                   {studentSchoolId
                     ? "Choisir une classe"
                     : "Choisir d'abord une école"}
                 </option>
 
-                {availableClasses.map(
-                  (item) => (
-                    <option
-                      key={item.id}
-                      value={item.id}
-                    >
-                      {item.name}
-                      {item.level
-                        ? ` - ${item.level}`
-                        : ""}
-                    </option>
-                  )
-                )}
-
+                {availableClasses.map((item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                    {item.level
+                      ? ` - ${item.level}`
+                      : ""}
+                  </option>
+                ))}
               </select>
 
               <label>
@@ -1375,26 +1225,15 @@ export default function AdminDashboard({ session, onLogout }) {
               <input
                 type="text"
                 placeholder="Ex : EC-0001"
-                value={
-                  studentCode
-                }
+                value={studentCode}
                 onChange={(e) =>
-                  setStudentCode(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  creatingStudent
+                  setStudentCode(e.target.value)
                 }
               />
 
               <button
-                onClick={
-                  createStudent
-                }
-                disabled={
-                  creatingStudent
-                }
+                onClick={createStudent}
+                disabled={creatingStudent}
               >
                 {creatingStudent
                   ? "Création..."
@@ -1403,8 +1242,6 @@ export default function AdminDashboard({ session, onLogout }) {
 
             </div>
           )}
-
-          {/* MODIFICATION ÉLÈVE */}
 
           {editingStudent && (
             <div className="card">
@@ -1419,16 +1256,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <input
                 type="text"
-                value={
-                  studentFirstName
-                }
+                value={studentFirstName}
                 onChange={(e) =>
-                  setStudentFirstName(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  savingStudent
+                  setStudentFirstName(e.target.value)
                 }
               />
 
@@ -1438,16 +1268,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <input
                 type="text"
-                value={
-                  studentLastName
-                }
+                value={studentLastName}
                 onChange={(e) =>
-                  setStudentLastName(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  savingStudent
+                  setStudentLastName(e.target.value)
                 }
               />
 
@@ -1456,36 +1279,24 @@ export default function AdminDashboard({ session, onLogout }) {
               </label>
 
               <select
-                value={
-                  studentSchoolId
-                }
+                value={studentSchoolId}
                 onChange={(e) => {
-                  setStudentSchoolId(
-                    e.target.value
-                  );
-
+                  setStudentSchoolId(e.target.value);
                   setStudentClassId("");
                 }}
-                disabled={
-                  savingStudent
-                }
               >
-
                 <option value="">
                   Choisir une école
                 </option>
 
-                {schools.map(
-                  (school) => (
-                    <option
-                      key={school.id}
-                      value={school.id}
-                    >
-                      {school.name}
-                    </option>
-                  )
-                )}
-
+                {schools.map((school) => (
+                  <option
+                    key={school.id}
+                    value={school.id}
+                  >
+                    {school.name}
+                  </option>
+                ))}
               </select>
 
               <label>
@@ -1493,38 +1304,27 @@ export default function AdminDashboard({ session, onLogout }) {
               </label>
 
               <select
-                value={
-                  studentClassId
-                }
+                value={studentClassId}
                 onChange={(e) =>
-                  setStudentClassId(
-                    e.target.value
-                  )
+                  setStudentClassId(e.target.value)
                 }
-                disabled={
-                  !studentSchoolId ||
-                  savingStudent
-                }
+                disabled={!studentSchoolId}
               >
-
                 <option value="">
                   Choisir une classe
                 </option>
 
-                {availableClasses.map(
-                  (item) => (
-                    <option
-                      key={item.id}
-                      value={item.id}
-                    >
-                      {item.name}
-                      {item.level
-                        ? ` - ${item.level}`
-                        : ""}
-                    </option>
-                  )
-                )}
-
+                {availableClasses.map((item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                    {item.level
+                      ? ` - ${item.level}`
+                      : ""}
+                  </option>
+                ))}
               </select>
 
               <label>
@@ -1533,26 +1333,15 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <input
                 type="text"
-                value={
-                  studentCode
-                }
+                value={studentCode}
                 onChange={(e) =>
-                  setStudentCode(
-                    e.target.value
-                  )
-                }
-                disabled={
-                  savingStudent
+                  setStudentCode(e.target.value)
                 }
               />
 
               <button
-                onClick={
-                  saveStudent
-                }
-                disabled={
-                  savingStudent
-                }
+                onClick={saveStudent}
+                disabled={savingStudent}
               >
                 {savingStudent
                   ? "Enregistrement..."
@@ -1561,12 +1350,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
               <button
                 className="secondary"
-                onClick={
-                  cancelEditStudent
-                }
-                disabled={
-                  savingStudent
-                }
+                onClick={cancelEditStudent}
               >
                 Annuler
               </button>
@@ -1574,106 +1358,76 @@ export default function AdminDashboard({ session, onLogout }) {
             </div>
           )}
 
-          {/* LISTE DES ÉLÈVES */}
-
-          <div
-            style={{
-              marginTop: "20px",
-            }}
-          >
+          <div style={{ marginTop: "20px" }}>
 
             {students.length === 0 ? (
-
               <p>
                 Aucun élève enregistré.
               </p>
-
             ) : (
+              students.map((student) => {
+                const isActive =
+                  student.active !== false;
 
-              students.map(
-                (student) => {
+                return (
+                  <div
+                    key={student.id}
+                    className="stat"
+                    style={{
+                      marginBottom: "15px",
+                    }}
+                  >
 
-                  const isActive =
-                    student.active !==
-                    false;
+                    <strong>
+                      {student.first_name}{" "}
+                      {student.last_name}
+                    </strong>
 
-                  return (
-                    <div
-                      key={student.id}
-                      className="stat"
-                      style={{
-                        marginBottom:
-                          "15px",
-                      }}
-                    >
+                    <span>
+                      🏫 {getSchoolName(student.school_id)}
+                    </span>
 
-                      <strong>
-                        {student.first_name}{" "}
-                        {student.last_name}
-                      </strong>
+                    <span>
+                      📚 {getClassName(student.class_id)}
+                    </span>
 
-                      <span>
-                        🏫{" "}
-                        {getSchoolName(
-                          student.school_id
-                        )}
-                      </span>
+                    <span>
+                      🆔{" "}
+                      {student.student_code ||
+                        "Code non renseigné"}
+                    </span>
 
-                      <span>
-                        📚{" "}
-                        {getClassName(
-                          student.class_id
-                        )}
-                      </span>
+                    <span>
+                      {isActive
+                        ? "🟢 Actif"
+                        : "🔴 Désactivé"}
+                    </span>
 
-                      <span>
-                        🆔{" "}
-                        {student.student_code ||
-                          "Code non renseigné"}
-                      </span>
+                    <div style={{ marginTop: "10px" }}>
 
-                      <span>
-                        {isActive
-                          ? "🟢 Actif"
-                          : "🔴 Désactivé"}
-                      </span>
-
-                      <div
-                        style={{
-                          marginTop:
-                            "10px",
-                        }}
+                      <button
+                        onClick={() =>
+                          startEditStudent(student)
+                        }
                       >
+                        ✏️ Modifier
+                      </button>
 
-                        <button
-                          onClick={() =>
-                            startEditStudent(
-                              student
-                            )
-                          }
-                        >
-                          ✏️ Modifier
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            toggleStudentStatus(
-                              student
-                            )
-                          }
-                        >
-                          {isActive
-                            ? "🔴 Désactiver"
-                            : "🟢 Réactiver"}
-                        </button>
-
-                      </div>
+                      <button
+                        onClick={() =>
+                          toggleStudentStatus(student)
+                        }
+                      >
+                        {isActive
+                          ? "🔴 Désactiver"
+                          : "🟢 Réactiver"}
+                      </button>
 
                     </div>
-                  );
-                }
-              )
 
+                  </div>
+                );
+              })
             )}
 
           </div>
@@ -1688,9 +1442,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              setShowTeacherForm(
-                true
-              )
+              setShowTeacherForm(true)
             }
           >
             👨‍🏫
@@ -1700,14 +1452,22 @@ export default function AdminDashboard({ session, onLogout }) {
 
           <button
             onClick={() =>
-              setShowStudentForm(
-                true
-              )
+              setShowStudentForm(true)
             }
           >
             👨‍🎓
             <br />
             Gérer les élèves
+          </button>
+
+          <button
+            onClick={() =>
+              setShowSchoolForm(true)
+            }
+          >
+            🏫
+            <br />
+            Gérer les écoles
           </button>
 
           <button
@@ -1720,18 +1480,6 @@ export default function AdminDashboard({ session, onLogout }) {
             👨‍👩‍👧
             <br />
             Gérer les parents
-          </button>
-
-          <button
-            onClick={() =>
-              alert(
-                "La gestion des écoles sera ajoutée prochainement."
-              )
-            }
-          >
-            🏫
-            <br />
-            Gérer les écoles
           </button>
 
           <button

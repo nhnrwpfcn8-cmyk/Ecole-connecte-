@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
-
 import TeacherDashboard from "./TeacherDashboard.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
-
 import "./styles.css";
 
 function App() {
@@ -13,23 +11,25 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
 
   async function loadUserRole(currentSession) {
-    if (!currentSession?.user?.id) {
+    if (!currentSession) {
       setRole(null);
       return;
     }
 
     try {
-      const { data, error } =
-        await supabase.rpc("get_my_role");
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", currentSession.user.id)
+        .single();
 
       if (error) {
-        console.error(
-          "Erreur récupération rôle :",
-          error
-        );
+        console.error("Erreur profil :", error);
 
         setRole(null);
 
@@ -41,43 +41,41 @@ function App() {
         return;
       }
 
-      console.log(
-        "Rôle récupéré :",
-        data
-      );
-
-      setRole(data || null);
-      setMessage("");
+      setRole(profile?.role || null);
 
     } catch (error) {
       console.error(
-        "Erreur rôle :",
+        "Erreur récupération rôle :",
         error
       );
 
       setRole(null);
 
       setMessage(
-        "Impossible de récupérer votre rôle."
+        "Impossible de récupérer votre profil."
       );
     }
   }
 
   useEffect(() => {
-    let mounted = true;
-
-    async function initialize() {
+    async function loadSession() {
       try {
         const {
           data,
-          error,
+          error
         } = await supabase.auth.getSession();
 
         if (error) {
-          throw error;
-        }
+          console.error(
+            "Erreur Supabase :",
+            error
+          );
 
-        if (!mounted) {
+          setMessage(
+            "Erreur Supabase : " +
+            error.message
+          );
+
           return;
         }
 
@@ -94,53 +92,45 @@ function App() {
 
       } catch (error) {
         console.error(
-          "Erreur session :",
+          "Erreur réseau Supabase :",
           error
         );
 
-        if (mounted) {
-          setMessage(
-            "Impossible de charger votre session."
-          );
-        }
+        setMessage(
+          "Connexion à Supabase impossible."
+        );
 
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    initialize();
+    loadSession();
 
     const {
-      data: authListener,
-    } =
-      supabase.auth.onAuthStateChange(
-        async (_event, nextSession) => {
+      data: {
+        subscription
+      }
+    } = supabase.auth.onAuthStateChange(
+      async (
+        _event,
+        nextSession
+      ) => {
+        setSession(nextSession);
 
-          if (!mounted) {
-            return;
-          }
-
-          setSession(nextSession);
-
-          if (nextSession) {
-            await loadUserRole(
-              nextSession
-            );
-          } else {
-            setRole(null);
-          }
+        if (nextSession) {
+          await loadUserRole(
+            nextSession
+          );
+        } else {
+          setRole(null);
         }
-      );
+      }
+    );
 
     return () => {
-      mounted = false;
-
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-
   }, []);
 
   async function signIn() {
@@ -157,38 +147,65 @@ function App() {
       return;
     }
 
+    if (!password) {
+      setMessage(
+        "Veuillez saisir votre mot de passe."
+      );
+
+      return;
+    }
+
+    setLoggingIn(true);
+
     try {
       const {
-        error,
-      } =
-        await supabase.auth.signInWithOtp({
-          email: cleanEmail,
-
-          options: {
-            emailRedirectTo:
-              window.location.origin,
-          },
-        });
+        data,
+        error
+      } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+      });
 
       if (error) {
+        console.error(
+          "Erreur connexion :",
+          error
+        );
+
         setMessage(
-          "Erreur Supabase : " +
+          "Erreur de connexion : " +
           error.message
         );
 
         return;
       }
 
-      setMessage(
-        "Un lien de connexion a été envoyé à votre e-mail."
+      if (!data?.session) {
+        setMessage(
+          "Connexion impossible."
+        );
+
+        return;
+      }
+
+      setSession(data.session);
+
+      await loadUserRole(
+        data.session
       );
 
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erreur réseau :",
+        error
+      );
 
       setMessage(
         "Impossible de contacter Supabase."
       );
+
+    } finally {
+      setLoggingIn(false);
     }
   }
 
@@ -197,6 +214,8 @@ function App() {
 
     setSession(null);
     setRole(null);
+    setEmail("");
+    setPassword("");
     setMessage("");
   }
 
@@ -208,40 +227,28 @@ function App() {
     );
   }
 
-  /*
-   * ADMIN
-   */
-
-  if (session && role === "admin") {
-    return (
-      <AdminDashboard
-        session={session}
-        onLogout={signOut}
-      />
-    );
-  }
-
-  /*
-   * PROFESSEUR
-   */
-
-  if (session && role === "teacher") {
-    return (
-      <TeacherDashboard
-        session={session}
-        onLogout={signOut}
-      />
-    );
-  }
-
-  /*
-   * COMPTE CONNECTÉ MAIS RÔLE INCONNU
-   */
-
   if (session) {
+
+    if (role === "admin") {
+      return (
+        <AdminDashboard
+          session={session}
+          onLogout={signOut}
+        />
+      );
+    }
+
+    if (role === "teacher") {
+      return (
+        <TeacherDashboard
+          session={session}
+          onLogout={signOut}
+        />
+      );
+    }
+
     return (
       <main className="page">
-
         <section className="card login">
 
           <div className="logo">
@@ -258,39 +265,28 @@ function App() {
 
           <p className="intro">
             Votre compte est bien connecté,
-            mais votre profil n'est pas encore
-            correctement configuré.
+            mais aucun espace n'est encore
+            configuré pour votre rôle.
           </p>
 
-          {message && (
-            <p className="message">
-              {message}
-            </p>
-          )}
-
-          <p className="small">
-            Rôle actuel :
-            <br />
+          <p className="message">
+            Rôle actuel :{" "}
             {role || "non défini"}
           </p>
 
-          <button onClick={signOut}>
+          <button
+            onClick={signOut}
+          >
             Déconnexion
           </button>
 
         </section>
-
       </main>
     );
   }
 
-  /*
-   * CONNEXION
-   */
-
   return (
     <main className="page">
-
       <section className="card login">
 
         <div className="logo">
@@ -302,14 +298,12 @@ function App() {
         </p>
 
         <h1>
-          La sécurité et le suivi des élèves
-          au cœur de l’école.
+          Connexion
         </h1>
 
         <p className="intro">
-          Connectez-vous pour accéder à votre
-          espace Parent, Professeur, École
-          ou Administration.
+          Accédez à votre espace
+          École Connectée.
         </p>
 
         <label>
@@ -323,10 +317,35 @@ function App() {
           onChange={(e) =>
             setEmail(e.target.value)
           }
+          autoComplete="email"
         />
 
-        <button onClick={signIn}>
-          Recevoir mon lien de connexion
+        <label>
+          Mot de passe
+        </label>
+
+        <input
+          type="password"
+          placeholder="Votre mot de passe"
+          value={password}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
+          autoComplete="current-password"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              signIn();
+            }
+          }}
+        />
+
+        <button
+          onClick={signIn}
+          disabled={loggingIn}
+        >
+          {loggingIn
+            ? "Connexion..."
+            : "🔐 Se connecter"}
         </button>
 
         {message && (
@@ -340,7 +359,6 @@ function App() {
         </p>
 
       </section>
-
     </main>
   );
 }

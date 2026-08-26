@@ -3,44 +3,49 @@ import { supabase } from "./src/lib/supabase";
 
 export default function TeacherDashboard({ session, onLogout }) {
   const [documents, setDocuments] = useState([]);
+  const [exercises, setExercises] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [exercises, setExercises] = useState([]);
+
+  const [schoolId, setSchoolId] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const [showDocumentForm, setShowDocumentForm] = useState(false);
-  const [showExerciseForm, setShowExerciseForm] = useState(false);
+  const [showDocumentForm, setShowDocumentForm] =
+    useState(false);
+
+  const [showExerciseForm, setShowExerciseForm] =
+    useState(false);
 
   // DOCUMENT
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [documentType, setDocumentType] = useState("lecon");
+  const [description, setDescription] =
+    useState("");
+  const [documentType, setDocumentType] =
+    useState("lecon");
   const [classId, setClassId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
+  const [subjectId, setSubjectId] =
+    useState("");
   const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] =
+    useState(false);
 
   // EXERCICE
-  const [exerciseTitle, setExerciseTitle] = useState("");
-  const [exerciseDescription, setExerciseDescription] = useState("");
-  const [exerciseInstructions, setExerciseInstructions] = useState("");
-  const [exerciseClassId, setExerciseClassId] = useState("");
-  const [exerciseSubjectId, setExerciseSubjectId] = useState("");
-  const [duration, setDuration] = useState("");
-
-  const [questions, setQuestions] = useState([
-    {
-      question: "",
-      question_type: "text",
-      options: "",
-      correct_answer: "",
-      points: 1
-    }
-  ]);
-
-  const [savingExercise, setSavingExercise] = useState(false);
+  const [exerciseTitle, setExerciseTitle] =
+    useState("");
+  const [exerciseDescription, setExerciseDescription] =
+    useState("");
+  const [instructions, setInstructions] =
+    useState("");
+  const [duration, setDuration] =
+    useState("30");
+  const [exerciseClassId, setExerciseClassId] =
+    useState("");
+  const [exerciseSubjectId, setExerciseSubjectId] =
+    useState("");
+  const [publishingExercise, setPublishingExercise] =
+    useState(false);
 
   useEffect(() => {
     loadData();
@@ -48,79 +53,136 @@ export default function TeacherDashboard({ session, onLogout }) {
 
   async function loadData() {
     setLoading(true);
+    setMessage("");
 
-    const [
-      documentsResult,
-      classesResult,
-      subjectsResult,
-      exercisesResult
-    ] = await Promise.all([
-      supabase
-        .from("documents")
-        .select("*")
-        .eq("teacher_id", session.user.id)
-        .order("created_at", { ascending: false }),
+    try {
+      // PROFIL DU PROFESSEUR
+      const {
+        data: profile,
+        error: profileError
+      } = await supabase
+        .from("profiles")
+        .select("id, full_name, role, school_id")
+        .eq("id", session.user.id)
+        .single();
 
-      supabase
-        .from("classes")
-        .select("*")
-        .order("name"),
+      if (profileError) {
+        throw profileError;
+      }
 
-      supabase
-        .from("subjects")
-        .select("*")
-        .order("name"),
+      setSchoolId(profile.school_id);
 
-      supabase
-        .from("exercises")
-        .select("*")
-        .eq("teacher_id", session.user.id)
-        .order("created_at", { ascending: false })
-    ]);
+      // CHARGER DOCUMENTS, EXERCICES, CLASSES ET MATIÈRES
+      const [
+        documentsResult,
+        exercisesResult,
+        classesResult,
+        subjectsResult
+      ] = await Promise.all([
+        supabase
+          .from("documents")
+          .select("*")
+          .eq(
+            "teacher_id",
+            session.user.id
+          )
+          .order("created_at", {
+            ascending: false
+          }),
 
-    if (documentsResult.data) {
-      setDocuments(documentsResult.data);
+        supabase
+          .from("exercises")
+          .select("*")
+          .eq(
+            "teacher_id",
+            session.user.id
+          )
+          .order("created_at", {
+            ascending: false
+          }),
+
+        supabase
+          .from("classes")
+          .select("*")
+          .order("name"),
+
+        supabase
+          .from("subjects")
+          .select("*")
+          .order("name")
+      ]);
+
+      if (documentsResult.error) {
+        throw documentsResult.error;
+      }
+
+      if (exercisesResult.error) {
+        throw exercisesResult.error;
+      }
+
+      if (classesResult.error) {
+        throw classesResult.error;
+      }
+
+      if (subjectsResult.error) {
+        throw subjectsResult.error;
+      }
+
+      setDocuments(
+        documentsResult.data || []
+      );
+
+      setExercises(
+        exercisesResult.data || []
+      );
+
+      setClasses(
+        classesResult.data || []
+      );
+
+      setSubjects(
+        subjectsResult.data || []
+      );
+
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        "Erreur : " + error.message
+      );
+    } finally {
+      setLoading(false);
     }
-
-    if (classesResult.data) {
-      setClasses(classesResult.data);
-    }
-
-    if (subjectsResult.data) {
-      setSubjects(subjectsResult.data);
-    }
-
-    if (exercisesResult.data) {
-      setExercises(exercisesResult.data);
-    }
-
-    setLoading(false);
   }
-
-  // =========================
-  // DOCUMENTS
-  // =========================
 
   async function publishDocument() {
     setMessage("");
 
     if (!title.trim()) {
-      setMessage("Veuillez saisir un titre.");
+      setMessage(
+        "Veuillez saisir un titre."
+      );
       return;
     }
 
     if (!classId) {
-      setMessage("Veuillez choisir une classe.");
+      setMessage(
+        "Veuillez choisir une classe."
+      );
       return;
     }
 
     if (!subjectId) {
-      setMessage("Veuillez choisir une matière.");
+      setMessage(
+        "Veuillez choisir une matière."
+      );
       return;
     }
 
     if (!file) {
-      setMessage("Veuillez choisir un fichier.");
+      setMessage(
+        "Veuillez choisir un fichier."
+      );
       return;
     }
 
@@ -130,38 +192,55 @@ export default function TeacherDashboard({ session, onLogout }) {
       const filePath =
         `${session.user.id}/${Date.now()}-${file.name}`;
 
-      const { error: uploadError } =
-        await supabase.storage
-          .from("school-documents")
-          .upload(filePath, file);
+      const {
+        error: uploadError
+      } = await supabase.storage
+        .from("school-documents")
+        .upload(
+          filePath,
+          file
+        );
 
       if (uploadError) {
         throw uploadError;
       }
 
-      const { data: publicUrlData } =
-        supabase.storage
-          .from("school-documents")
-          .getPublicUrl(filePath);
+      const {
+        data: publicUrlData
+      } = supabase.storage
+        .from("school-documents")
+        .getPublicUrl(
+          filePath
+        );
 
-      const { error: insertError } =
-        await supabase
-          .from("documents")
-          .insert({
-            teacher_id: session.user.id,
-            class_id: classId,
-            subject_id: Number(subjectId),
-            title: title.trim(),
-            description: description.trim(),
-            document_type: documentType,
-            file_url: publicUrlData.publicUrl
-          });
+      const {
+        error: insertError
+      } = await supabase
+        .from("documents")
+        .insert({
+          teacher_id:
+            session.user.id,
+          class_id:
+            classId,
+          subject_id:
+            Number(subjectId),
+          title:
+            title.trim(),
+          description:
+            description.trim(),
+          document_type:
+            documentType,
+          file_url:
+            publicUrlData.publicUrl
+        });
 
       if (insertError) {
         throw insertError;
       }
 
-      setMessage("Document publié avec succès !");
+      setMessage(
+        "Document publié avec succès !"
+      );
 
       setTitle("");
       setDescription("");
@@ -169,196 +248,124 @@ export default function TeacherDashboard({ session, onLogout }) {
       setClassId("");
       setSubjectId("");
       setFile(null);
+
       setShowDocumentForm(false);
 
       await loadData();
 
     } catch (error) {
       console.error(error);
-      setMessage("Erreur : " + error.message);
 
+      setMessage(
+        "Erreur : " +
+        error.message
+      );
     } finally {
       setUploading(false);
     }
   }
 
-  // =========================
-  // QUESTIONS
-  // =========================
+  async function publishExercise() {
+    setMessage("");
 
-  function addQuestion() {
-    setQuestions([
-      ...questions,
-      {
-        question: "",
-        question_type: "text",
-        options: "",
-        correct_answer: "",
-        points: 1
-      }
-    ]);
-  }
-
-  function removeQuestion(index) {
-    if (questions.length === 1) {
+    if (!schoolId) {
+      setMessage(
+        "Votre profil n'est associé à aucune école."
+      );
       return;
     }
 
-    setQuestions(
-      questions.filter((_, i) => i !== index)
-    );
-  }
-
-  function updateQuestion(index, field, value) {
-    const updated = [...questions];
-
-    updated[index] = {
-      ...updated[index],
-      [field]: value
-    };
-
-    setQuestions(updated);
-  }
-
-  // =========================
-  // CREER EXERCICE
-  // =========================
-
-  async function saveExercise(published) {
-    setMessage("");
-
     if (!exerciseTitle.trim()) {
-      setMessage("Veuillez saisir le titre de l'exercice.");
+      setMessage(
+        "Veuillez saisir le titre de l'exercice."
+      );
       return;
     }
 
     if (!exerciseClassId) {
-      setMessage("Veuillez choisir une classe.");
+      setMessage(
+        "Veuillez choisir une classe."
+      );
       return;
     }
 
     if (!exerciseSubjectId) {
-      setMessage("Veuillez choisir une matière.");
+      setMessage(
+        "Veuillez choisir une matière."
+      );
       return;
     }
 
-    for (const item of questions) {
-      if (!item.question.trim()) {
-        setMessage("Toutes les questions doivent être remplies.");
-        return;
-      }
-
-      if (!item.correct_answer.trim()) {
-        setMessage("Veuillez indiquer la réponse correcte.");
-        return;
-      }
+    if (!instructions.trim()) {
+      setMessage(
+        "Veuillez saisir les consignes."
+      );
+      return;
     }
 
-    setSavingExercise(true);
+    const durationNumber =
+      Number(duration);
+
+    if (
+      !durationNumber ||
+      durationNumber <= 0
+    ) {
+      setMessage(
+        "La durée doit être supérieure à 0 minute."
+      );
+      return;
+    }
+
+    setPublishingExercise(true);
 
     try {
-      // Récupérer l'école du professeur
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("school_id")
-          .eq("id", session.user.id)
-          .single();
+      const {
+        error
+      } = await supabase
+        .from("exercises")
+        .insert({
+          teacher_id:
+            session.user.id,
 
-      if (profileError) {
-        throw profileError;
-      }
+          school_id:
+            schoolId,
 
-      if (!profile?.school_id) {
-        throw new Error(
-          "Votre profil professeur n'est associé à aucune école."
-        );
-      }
+          class_id:
+            exerciseClassId,
 
-      // Créer l'exercice
-      const { data: exercise, error: exerciseError } =
-        await supabase
-          .from("exercises")
-          .insert({
-            teacher_id: session.user.id,
-            school_id: profile.school_id,
-            class_id: exerciseClassId,
-            subject_id: Number(exerciseSubjectId),
-            title: exerciseTitle.trim(),
-            description: exerciseDescription.trim(),
-            instructions: exerciseInstructions.trim(),
-            duration_minutes:
-              duration
-                ? Number(duration)
-                : null,
-            published: published
-          })
-          .select()
-          .single();
+          subject_id:
+            Number(exerciseSubjectId),
 
-      if (exerciseError) {
-        throw exerciseError;
-      }
+          title:
+            exerciseTitle.trim(),
 
-      // Préparer les questions
-      const questionRows = questions.map(
-        (item, index) => ({
-          exercise_id: exercise.id,
-          question: item.question.trim(),
-          question_type: item.question_type,
-          options:
-            item.question_type === "qcm"
-              ? item.options
-                  .split(",")
-                  .map((option) => option.trim())
-                  .filter(Boolean)
-              : null,
-          correct_answer:
-            item.correct_answer.trim(),
-          points:
-            Number(item.points) || 1,
-          position: index
-        })
-      );
+          description:
+            exerciseDescription.trim(),
 
-      const { error: questionsError } =
-        await supabase
-          .from("exercise_questions")
-          .insert(questionRows);
+          instructions:
+            instructions.trim(),
 
-      if (questionsError) {
-        // Supprimer l'exercice si les questions échouent
-        await supabase
-          .from("exercises")
-          .delete()
-          .eq("id", exercise.id);
+          duration_minutes:
+            durationNumber,
 
-        throw questionsError;
+          published:
+            true
+        });
+
+      if (error) {
+        throw error;
       }
 
       setMessage(
-        published
-          ? "🎉 Exercice publié avec succès !"
-          : "💾 Exercice enregistré comme brouillon."
+        "Exercice publié avec succès !"
       );
 
-      // Réinitialisation
       setExerciseTitle("");
       setExerciseDescription("");
-      setExerciseInstructions("");
+      setInstructions("");
+      setDuration("30");
       setExerciseClassId("");
       setExerciseSubjectId("");
-      setDuration("");
-
-      setQuestions([
-        {
-          question: "",
-          question_type: "text",
-          options: "",
-          correct_answer: "",
-          points: 1
-        }
-      ]);
 
       setShowExerciseForm(false);
 
@@ -366,10 +373,13 @@ export default function TeacherDashboard({ session, onLogout }) {
 
     } catch (error) {
       console.error(error);
-      setMessage("Erreur : " + error.message);
 
+      setMessage(
+        "Erreur lors de la publication de l'exercice : " +
+        error.message
+      );
     } finally {
-      setSavingExercise(false);
+      setPublishingExercise(false);
     }
   }
 
@@ -459,368 +469,14 @@ export default function TeacherDashboard({ session, onLogout }) {
         {/* MESSAGE */}
 
         {message && (
-          <p className="message">
-            {message}
-          </p>
-        )}
-
-        {/* =========================
-            EXERCICES
-        ========================= */}
-
-        <div className="notice">
-
-          <h2>
-            📝 Exercices
-          </h2>
-
-          <p>
-            Créez des exercices interactifs
-            pour vos élèves.
-          </p>
-
-          <button
-            onClick={() =>
-              setShowExerciseForm(
-                !showExerciseForm
-              )
-            }
-          >
-            {showExerciseForm
-              ? "Fermer"
-              : "+ Nouvel exercice"}
-          </button>
-
-        </div>
-
-        {/* FORMULAIRE EXERCICE */}
-
-        {showExerciseForm && (
-          <div className="card">
-
-            <h2>
-              📝 Nouvel exercice
-            </h2>
-
-            <label>
-              Classe
-            </label>
-
-            <select
-              value={exerciseClassId}
-              onChange={(e) =>
-                setExerciseClassId(
-                  e.target.value
-                )
-              }
-            >
-              <option value="">
-                Choisir une classe
-              </option>
-
-              {classes.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
-            </select>
-
-            <label>
-              Matière
-            </label>
-
-            <select
-              value={exerciseSubjectId}
-              onChange={(e) =>
-                setExerciseSubjectId(
-                  e.target.value
-                )
-              }
-            >
-              <option value="">
-                Choisir une matière
-              </option>
-
-              {subjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
-            </select>
-
-            <label>
-              Titre de l'exercice
-            </label>
-
-            <input
-              type="text"
-              placeholder="Ex : Les fractions"
-              value={exerciseTitle}
-              onChange={(e) =>
-                setExerciseTitle(
-                  e.target.value
-                )
-              }
-            />
-
-            <label>
-              Description
-            </label>
-
-            <textarea
-              placeholder="Décrivez l'exercice..."
-              value={exerciseDescription}
-              onChange={(e) =>
-                setExerciseDescription(
-                  e.target.value
-                )
-              }
-            />
-
-            <label>
-              Consignes
-            </label>
-
-            <textarea
-              placeholder="Ex : Répondez à toutes les questions."
-              value={exerciseInstructions}
-              onChange={(e) =>
-                setExerciseInstructions(
-                  e.target.value
-                )
-              }
-            />
-
-            <label>
-              Durée en minutes
-            </label>
-
-            <input
-              type="number"
-              min="1"
-              placeholder="Ex : 30"
-              value={duration}
-              onChange={(e) =>
-                setDuration(
-                  e.target.value
-                )
-              }
-            />
-
-            <hr />
-
-            <h3>
-              Questions
-            </h3>
-
-            {questions.map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className="card"
-                >
-
-                  <h3>
-                    Question {index + 1}
-                  </h3>
-
-                  <label>
-                    Question
-                  </label>
-
-                  <textarea
-                    placeholder="Écrivez la question..."
-                    value={item.question}
-                    onChange={(e) =>
-                      updateQuestion(
-                        index,
-                        "question",
-                        e.target.value
-                      )
-                    }
-                  />
-
-                  <label>
-                    Type de question
-                  </label>
-
-                  <select
-                    value={
-                      item.question_type
-                    }
-                    onChange={(e) =>
-                      updateQuestion(
-                        index,
-                        "question_type",
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="text">
-                      Réponse libre
-                    </option>
-
-                    <option value="qcm">
-                      QCM
-                    </option>
-
-                    <option value="vrai_faux">
-                      Vrai / Faux
-                    </option>
-                  </select>
-
-                  {item.question_type ===
-                    "qcm" && (
-                    <>
-                      <label>
-                        Choix de réponses
-                      </label>
-
-                      <input
-                        type="text"
-                        placeholder="Ex : Paris, Dakar, Londres"
-                        value={item.options}
-                        onChange={(e) =>
-                          updateQuestion(
-                            index,
-                            "options",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </>
-                  )}
-
-                  <label>
-                    Réponse correcte
-                  </label>
-
-                  <input
-                    type="text"
-                    placeholder="Réponse correcte"
-                    value={
-                      item.correct_answer
-                    }
-                    onChange={(e) =>
-                      updateQuestion(
-                        index,
-                        "correct_answer",
-                        e.target.value
-                      )
-                    }
-                  />
-
-                  <label>
-                    Points
-                  </label>
-
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.points}
-                    onChange={(e) =>
-                      updateQuestion(
-                        index,
-                        "points",
-                        e.target.value
-                      )
-                    }
-                  />
-
-                  {questions.length > 1 && (
-                    <button
-                      className="secondary"
-                      onClick={() =>
-                        removeQuestion(index)
-                      }
-                    >
-                      🗑️ Supprimer la question
-                    </button>
-                  )}
-
-                </div>
-              )
-            )}
-
-            <button
-              className="secondary"
-              onClick={addQuestion}
-            >
-              + Ajouter une question
-            </button>
-
-            <br />
-            <br />
-
-            <button
-              onClick={() =>
-                saveExercise(false)
-              }
-              disabled={savingExercise}
-            >
-              💾 Enregistrer brouillon
-            </button>
-
-            <button
-              onClick={() =>
-                saveExercise(true)
-              }
-              disabled={savingExercise}
-            >
-              {savingExercise
-                ? "Enregistrement..."
-                : "📢 Publier l'exercice"}
-            </button>
-
+          <div className="notice">
+            <p className="message">
+              {message}
+            </p>
           </div>
         )}
 
-        {/* =========================
-            MES EXERCICES
-        ========================= */}
-
-        <div className="notice">
-
-          <h2>
-            📚 Mes exercices
-          </h2>
-
-          {exercises.length === 0 ? (
-            <p>
-              Vous n'avez encore créé aucun exercice.
-            </p>
-          ) : (
-            exercises.map((exercise) => (
-              <div
-                key={exercise.id}
-                className="stat"
-              >
-
-                <strong>
-                  {exercise.title}
-                </strong>
-
-                <span>
-                  {exercise.published
-                    ? "🟢 Publié"
-                    : "🟡 Brouillon"}
-                </span>
-
-              </div>
-            ))
-          )}
-
-        </div>
-
-        {/* =========================
-            DOCUMENTS
-        ========================= */}
+        {/* DOCUMENTS */}
 
         <div className="notice">
 
@@ -829,8 +485,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Partagez vos leçons, cours,
-            exercices et devoirs avec vos élèves.
+            Partagez vos leçons,
+            cours, exercices et devoirs
+            avec vos élèves.
           </p>
 
           <button
@@ -952,7 +609,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Ex : Les fractions"
               value={title}
               onChange={(e) =>
-                setTitle(e.target.value)
+                setTitle(
+                  e.target.value
+                )
               }
             />
 
@@ -979,13 +638,16 @@ export default function TeacherDashboard({ session, onLogout }) {
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               onChange={(e) =>
                 setFile(
-                  e.target.files?.[0] || null
+                  e.target.files?.[0] ||
+                  null
                 )
               }
             />
 
             <button
-              onClick={publishDocument}
+              onClick={
+                publishDocument
+              }
               disabled={uploading}
             >
               {uploading
@@ -996,17 +658,215 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
+        {/* EXERCICES */}
+
+        <div className="notice">
+
+          <h2>
+            📝 Exercices
+          </h2>
+
+          <p>
+            Créez des exercices pour
+            vos classes et donnez des
+            consignes à vos élèves.
+          </p>
+
+          <button
+            onClick={() =>
+              setShowExerciseForm(
+                !showExerciseForm
+              )
+            }
+          >
+            {showExerciseForm
+              ? "Fermer"
+              : "+ Nouvel exercice"}
+          </button>
+
+        </div>
+
+        {showExerciseForm && (
+          <div className="card">
+
+            <h2>
+              📝 Nouvel exercice
+            </h2>
+
+            <label>
+              Classe
+            </label>
+
+            <select
+              value={exerciseClassId}
+              onChange={(e) =>
+                setExerciseClassId(
+                  e.target.value
+                )
+              }
+            >
+              <option value="">
+                Choisir une classe
+              </option>
+
+              {classes.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <label>
+              Matière
+            </label>
+
+            <select
+              value={exerciseSubjectId}
+              onChange={(e) =>
+                setExerciseSubjectId(
+                  e.target.value
+                )
+              }
+            >
+              <option value="">
+                Choisir une matière
+              </option>
+
+              {subjects.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <label>
+              Titre de l'exercice
+            </label>
+
+            <input
+              type="text"
+              placeholder="Ex : Exercices sur les fractions"
+              value={exerciseTitle}
+              onChange={(e) =>
+                setExerciseTitle(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Description
+            </label>
+
+            <textarea
+              placeholder="Présentez brièvement l'exercice..."
+              value={exerciseDescription}
+              onChange={(e) =>
+                setExerciseDescription(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Consignes
+            </label>
+
+            <textarea
+              placeholder="Écrivez les consignes que les élèves doivent suivre..."
+              value={instructions}
+              onChange={(e) =>
+                setInstructions(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>
+              Durée (minutes)
+            </label>
+
+            <input
+              type="number"
+              min="1"
+              value={duration}
+              onChange={(e) =>
+                setDuration(
+                  e.target.value
+                )
+              }
+            />
+
+            <button
+              onClick={
+                publishExercise
+              }
+              disabled={
+                publishingExercise
+              }
+            >
+              {publishingExercise
+                ? "Publication en cours..."
+                : "🚀 Publier l'exercice"}
+            </button>
+
+          </div>
+        )}
+
+        {/* LISTE EXERCICES */}
+
+        <div className="notice">
+
+          <h2>
+            📋 Mes exercices
+          </h2>
+
+          {exercises.length === 0 ? (
+            <p>
+              Vous n'avez encore créé
+              aucun exercice.
+            </p>
+          ) : (
+            exercises.map((exercise) => (
+              <div
+                key={exercise.id}
+                className="stat"
+              >
+                <strong>
+                  {exercise.title}
+                </strong>
+
+                <span>
+                  {exercise.duration_minutes} min
+                  {" • "}
+                  {exercise.published
+                    ? "Publié"
+                    : "Brouillon"}
+                </span>
+              </div>
+            ))
+          )}
+
+        </div>
+
         {/* PUBLICATIONS */}
 
         <div className="notice">
 
           <h2>
-            📖 Mes publications
+            📚 Mes publications
           </h2>
 
           {documents.length === 0 ? (
             <p>
-              Vous n'avez encore publié aucun document.
+              Vous n'avez encore publié
+              aucun document.
             </p>
           ) : (
             documents.map((document) => (
@@ -1014,7 +874,6 @@ export default function TeacherDashboard({ session, onLogout }) {
                 key={document.id}
                 className="stat"
               >
-
                 <strong>
                   {document.title}
                 </strong>
@@ -1022,7 +881,6 @@ export default function TeacherDashboard({ session, onLogout }) {
                 <span>
                   {document.document_type}
                 </span>
-
               </div>
             ))
           )}

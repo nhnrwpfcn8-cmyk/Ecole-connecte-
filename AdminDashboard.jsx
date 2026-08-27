@@ -658,7 +658,8 @@ export default function AdminDashboard({
 
     const email =
       teacherForm.email.trim();
-
+const password =
+  teacherForm.password;
     if (!fullName) {
       setMessage(
         "Veuillez saisir le nom du professeur."
@@ -698,15 +699,17 @@ if (teacherForm.password.length < 6) {
           "create-user",
           {
             body: {
-              full_name: fullName,
-              email,
-              phone:
-                teacherForm.phone.trim() ||
-                null,
-              role: "teacher",
-              school_id:
-                teacherForm.school_id,
-            },
+  full_name: fullName,
+  email,
+  phone:
+    teacherForm.phone.trim() ||
+    null,
+  password:
+    teacherForm.password,
+  role: "teacher",
+  school_id:
+    teacherForm.school_id,
+},
           }
         );
 
@@ -1383,12 +1386,13 @@ if (teacherForm.password.length < 6) {
   // =========================================================
 
   function resetTeacherForm() {
-    setTeacherForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      school_id: "",
-    });
+  setTeacherForm({
+    full_name: "",
+    email: "",
+    phone: "",
+    password: "",
+    school_id: "",
+  });
 
     setEditingTeacher(null);
     setShowTeacherForm(false);
@@ -1907,25 +1911,42 @@ if (teacherForm.password.length < 6) {
             />
 
             {!editingTeacher && (
-              <>
-                <label>
-                  Adresse e-mail
-                </label>
+  <>
+    <label>
+      Adresse e-mail
+    </label>
 
-                <input
-                  type="email"
-                  placeholder="professeur@email.com"
-                  value={
-                    teacherForm.email
-                  }
-                  onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      email:
-                        e.target.value,
-                    })
-                  }
-                  required
+    <input
+      type="email"
+      placeholder="professeur@email.com"
+      value={teacherForm.email}
+      onChange={(e) =>
+        setTeacherForm({
+          ...teacherForm,
+          email: e.target.value,
+        })
+      }
+      required
+    />
+
+    <label>
+      Mot de passe
+    </label>
+
+    <input
+      type="password"
+      placeholder="Minimum 6 caractères"
+      value={teacherForm.password}
+      onChange={(e) =>
+        setTeacherForm({
+          ...teacherForm,
+          password: e.target.value,
+        })
+      }
+      required
+    />
+  </>
+)}
                 />
               </>
             )}

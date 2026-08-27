@@ -1,5 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error(
+    "Supabase n'est pas configuré. Vérifie VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans Vercel."
+  );
+}
+
+const supabase = createClient(
+  supabaseUrl || "",
+  supabaseKey || ""
+);
+
+/* =========================================================
+   STATS
+   ========================================================= */
 
 const EMPTY_STATS = {
   classes: 0,
@@ -8,6 +32,10 @@ const EMPTY_STATS = {
   documents: 0,
   attendanceToday: 0,
 };
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
 
 export default function AdminDashboard() {
   const [profile, setProfile] = useState(null);
@@ -26,46 +54,52 @@ export default function AdminDashboard() {
 
   const [activeSection, setActiveSection] = useState("dashboard");
 
-  // ---------------------------------------------------------
-  // UTILITAIRES
-  // ---------------------------------------------------------
+  /* =========================================================
+     UTILITAIRES
+     ========================================================= */
 
   function formatDate(date) {
     if (!date) return "—";
 
-    try {
-      return new Intl.DateTimeFormat("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(new Date(date));
-    } catch {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
       return "—";
     }
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(parsedDate);
   }
 
   function formatTime(date) {
     if (!date) return "—";
 
-    try {
-      return new Intl.DateTimeFormat("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(date));
-    } catch {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
       return "—";
     }
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(parsedDate);
   }
 
   function getTodayStart() {
     const today = new Date();
+
     today.setHours(0, 0, 0, 0);
+
     return today.toISOString();
   }
 
-  // ---------------------------------------------------------
-  // RÉCUPÉRER LE PROFIL ADMIN
-  // ---------------------------------------------------------
+  /* =========================================================
+     PROFIL
+     ========================================================= */
 
   async function loadProfile(userId) {
     const { data, error: profileError } = await supabase
@@ -81,12 +115,13 @@ export default function AdminDashboard() {
     }
 
     setProfile(data);
+
     return data;
   }
 
-  // ---------------------------------------------------------
-  // CHARGER LES CLASSES
-  // ---------------------------------------------------------
+  /* =========================================================
+     CLASSES
+     ========================================================= */
 
   async function loadClasses(schoolId) {
     let query = supabase
@@ -107,14 +142,15 @@ export default function AdminDashboard() {
     }
 
     const result = data || [];
+
     setClasses(result);
 
     return result;
   }
 
-  // ---------------------------------------------------------
-  // CHARGER LES MATIÈRES
-  // ---------------------------------------------------------
+  /* =========================================================
+     MATIÈRES
+     ========================================================= */
 
   async function loadSubjects() {
     const { data, error: subjectsError } = await supabase
@@ -129,29 +165,26 @@ export default function AdminDashboard() {
       );
 
       setSubjects([]);
+
       return [];
     }
 
     const result = data || [];
+
     setSubjects(result);
 
     return result;
   }
 
-  // ---------------------------------------------------------
-  // CHARGER LES ÉLÈVES
-  // ---------------------------------------------------------
+  /* =========================================================
+     ÉLÈVES
+     ========================================================= */
 
   async function loadStudents(schoolId) {
     let query = supabase
       .from("students")
       .select("*")
       .order("created_at", { ascending: false });
-
-    /*
-      On filtre par school_id seulement si le champ existe
-      dans ton schéma et si l'école est connue.
-    */
 
     if (schoolId) {
       query = query.eq("school_id", schoolId);
@@ -166,50 +199,36 @@ export default function AdminDashboard() {
       );
 
       setStudents([]);
+
       return [];
     }
 
     const result = data || [];
+
     setStudents(result);
 
     return result;
   }
 
-  // ---------------------------------------------------------
-  // CHARGER LES DOCUMENTS
-  // ---------------------------------------------------------
+  /* =========================================================
+     DOCUMENTS
+     ========================================================= */
 
-  async function loadDocuments(schoolId) {
-    /*
-      IMPORTANT :
-      documents.teacher_id référence profiles.id.
-      documents.class_id référence classes.id (UUID).
-      documents.subject_id référence subjects.id (bigint).
-    */
-
-    let query = supabase
+  async function loadDocuments(schoolId, loadedClasses) {
+    const { data, error: documentsError } = await supabase
       .from("documents")
-      .select(
-        `
-          id,
-          teacher_id,
-          class_id,
-          subject_id,
-          title,
-          description,
-          document_type,
-          file_url,
-          created_at
-        `
-      )
+      .select(`
+        id,
+        teacher_id,
+        class_id,
+        subject_id,
+        title,
+        description,
+        document_type,
+        file_url,
+        created_at
+      `)
       .order("created_at", { ascending: false });
-
-    /*
-      Il n'y a pas forcément school_id dans documents.
-      On ne filtre donc PAS directement par school_id.
-    */
-
-    const { data, error: documentsError } = await query;
 
     if (documentsError) {
       console.warn(
@@ -218,18 +237,20 @@ export default function AdminDashboard() {
       );
 
       setDocuments([]);
+
       return [];
     }
 
     let result = data || [];
 
     /*
-      Si une école est sélectionnée, on garde seulement les
-      documents appartenant aux classes de cette école.
+      documents ne possède pas nécessairement school_id.
+      On filtre donc par les classes de l'école.
     */
-    if (schoolId && classes.length > 0) {
+
+    if (schoolId && loadedClasses?.length > 0) {
       const classIds = new Set(
-        classes
+        loadedClasses
           .filter((item) => item.school_id === schoolId)
           .map((item) => item.id)
       );
@@ -244,17 +265,12 @@ export default function AdminDashboard() {
     return result;
   }
 
-  // ---------------------------------------------------------
-  // CHARGER LES PRÉSENCES
-  // ---------------------------------------------------------
+  /* =========================================================
+     PRÉSENCES
+     ========================================================= */
 
   async function loadAttendance() {
     const todayStart = getTodayStart();
-
-    /*
-      On utilise select("*") pour éviter de supposer
-      des noms de colonnes qui pourraient différer.
-    */
 
     const { data, error: attendanceError } = await supabase
       .from("attendance")
@@ -269,18 +285,20 @@ export default function AdminDashboard() {
       );
 
       setAttendance([]);
+
       return [];
     }
 
     const result = data || [];
+
     setAttendance(result);
 
     return result;
   }
 
-  // ---------------------------------------------------------
-  // CHARGEMENT GLOBAL
-  // ---------------------------------------------------------
+  /* =========================================================
+     CHARGEMENT COMPLET
+     ========================================================= */
 
   async function loadDashboard(showRefresh = false) {
     try {
@@ -302,71 +320,50 @@ export default function AdminDashboard() {
       }
 
       if (!user) {
-        throw new Error("Aucun utilisateur connecté.");
+        throw new Error(
+          "Aucun utilisateur connecté. Connecte-toi avant d'accéder au tableau de bord."
+        );
       }
+
+      /* Profil */
 
       const currentProfile = await loadProfile(user.id);
 
       const schoolId = currentProfile?.school_id || null;
 
-      /*
-        On charge d'abord les classes.
-        Les documents pourront ensuite utiliser leurs UUID.
-      */
+      /* Classes */
+
       const loadedClasses = await loadClasses(schoolId);
 
-      await loadSubjects();
-      await loadStudents(schoolId);
+      /* Matières */
 
-      /*
-        Documents : filtrage par les classes de l'école.
-      */
-      let loadedDocuments = [];
+      const loadedSubjects = await loadSubjects();
 
-      const { data: docs, error: docsError } = await supabase
-        .from("documents")
-        .select(
-          `
-            id,
-            teacher_id,
-            class_id,
-            subject_id,
-            title,
-            description,
-            document_type,
-            file_url,
-            created_at
-          `
-        )
-        .order("created_at", { ascending: false });
+      /* Élèves */
 
-      if (!docsError) {
-        loadedDocuments = docs || [];
+      const loadedStudents = await loadStudents(schoolId);
 
-        if (schoolId && loadedClasses.length > 0) {
-          const classIds = new Set(
-            loadedClasses
-              .filter((item) => item.school_id === schoolId)
-              .map((item) => item.id)
-          );
+      /* Documents */
 
-          loadedDocuments = loadedDocuments.filter((document) =>
-            classIds.has(document.class_id)
-          );
-        }
+      const loadedDocuments = await loadDocuments(
+        schoolId,
+        loadedClasses
+      );
 
-        setDocuments(loadedDocuments);
-      } else {
-        console.warn("Documents :", docsError.message);
-        setDocuments([]);
-      }
+      /* Présences */
 
       const loadedAttendance = await loadAttendance();
 
+      /*
+        IMPORTANT :
+        On utilise les variables loadedXXX et non les anciens
+        états React afin d'avoir immédiatement les bonnes statistiques.
+      */
+
       setStats({
         classes: loadedClasses.length,
-        students: students.length,
-        subjects: subjects.length,
+        students: loadedStudents.length,
+        subjects: loadedSubjects.length,
         documents: loadedDocuments.length,
         attendanceToday: loadedAttendance.length,
       });
@@ -383,23 +380,9 @@ export default function AdminDashboard() {
     }
   }
 
-  // ---------------------------------------------------------
-  // CORRECTION : LES STATS SONT RECALCULÉES APRÈS CHARGEMENT
-  // ---------------------------------------------------------
-
-  useEffect(() => {
-    setStats({
-      classes: classes.length,
-      students: students.length,
-      subjects: subjects.length,
-      documents: documents.length,
-      attendanceToday: attendance.length,
-    });
-  }, [classes, students, subjects, documents, attendance]);
-
-  // ---------------------------------------------------------
-  // INITIALISATION
-  // ---------------------------------------------------------
+  /* =========================================================
+     INITIALISATION
+     ========================================================= */
 
   useEffect(() => {
     loadDashboard(false);
@@ -418,6 +401,7 @@ export default function AdminDashboard() {
         setStudents([]);
         setDocuments([]);
         setAttendance([]);
+        setStats(EMPTY_STATS);
       }
     });
 
@@ -426,9 +410,9 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // ---------------------------------------------------------
-  // CLASSES PAR NIVEAU
-  // ---------------------------------------------------------
+  /* =========================================================
+     CLASSES PAR NIVEAU
+     ========================================================= */
 
   const classesByLevel = useMemo(() => {
     return classes.reduce((acc, item) => {
@@ -444,17 +428,17 @@ export default function AdminDashboard() {
     }, {});
   }, [classes]);
 
-  // ---------------------------------------------------------
-  // DOCUMENTS RÉCENTS
-  // ---------------------------------------------------------
+  /* =========================================================
+     DOCUMENTS RÉCENTS
+     ========================================================= */
 
   const recentDocuments = useMemo(() => {
     return documents.slice(0, 5);
   }, [documents]);
 
-  // ---------------------------------------------------------
-  // MENU
-  // ---------------------------------------------------------
+  /* =========================================================
+     MENU
+     ========================================================= */
 
   const menuItems = [
     {
@@ -489,23 +473,27 @@ export default function AdminDashboard() {
     },
   ];
 
-  // ---------------------------------------------------------
-  // CHARGEMENT
-  // ---------------------------------------------------------
+  /* =========================================================
+     CHARGEMENT
+     ========================================================= */
 
   if (loading) {
     return (
       <div style={styles.loadingPage}>
         <div style={styles.spinner}></div>
+
         <h2>École Connectée</h2>
-        <p>Chargement du tableau de bord...</p>
+
+        <p>
+          Chargement du tableau de bord...
+        </p>
       </div>
     );
   }
 
-  // ---------------------------------------------------------
-  // AFFICHAGE
-  // ---------------------------------------------------------
+  /* =========================================================
+     AFFICHAGE
+     ========================================================= */
 
   return (
     <div style={styles.page}>
@@ -513,16 +501,25 @@ export default function AdminDashboard() {
 
       <aside style={styles.sidebar}>
         <div style={styles.logoArea}>
-          <div style={styles.logo}>EC</div>
+          <div style={styles.logo}>
+            EC
+          </div>
 
           <div>
-            <strong style={styles.logoTitle}>École</strong>
-            <strong style={styles.logoGreen}> Connectée</strong>
+            <strong style={styles.logoTitle}>
+              École
+            </strong>
+
+            <strong style={styles.logoGreen}>
+              {" "}Connectée
+            </strong>
           </div>
         </div>
 
         <div style={styles.schoolBox}>
-          <div style={styles.schoolIcon}>🏫</div>
+          <div style={styles.schoolIcon}>
+            🏫
+          </div>
 
           <div>
             <div style={styles.schoolName}>
@@ -539,7 +536,9 @@ export default function AdminDashboard() {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() =>
+                setActiveSection(item.id)
+              }
               style={{
                 ...styles.navButton,
                 ...(activeSection === item.id
@@ -548,6 +547,7 @@ export default function AdminDashboard() {
               }}
             >
               <span>{item.icon}</span>
+
               <span>{item.label}</span>
             </button>
           ))}
@@ -576,7 +576,8 @@ export default function AdminDashboard() {
               {activeSection === "dashboard"
                 ? "Tableau de bord"
                 : menuItems.find(
-                    (item) => item.id === activeSection
+                    (item) =>
+                      item.id === activeSection
                   )?.label}
             </h1>
 
@@ -592,14 +593,20 @@ export default function AdminDashboard() {
           <div style={styles.headerRight}>
             <button
               style={styles.refreshButton}
-              onClick={() => loadDashboard(true)}
+              onClick={() =>
+                loadDashboard(true)
+              }
               disabled={refreshing}
             >
-              {refreshing ? "Actualisation..." : "↻ Actualiser"}
+              {refreshing
+                ? "Actualisation..."
+                : "↻ Actualiser"}
             </button>
 
             <div style={styles.avatar}>
-              {(profile?.full_name || "A").charAt(0).toUpperCase()}
+              {(profile?.full_name || "A")
+                .charAt(0)
+                .toUpperCase()}
             </div>
           </div>
         </header>
@@ -608,24 +615,29 @@ export default function AdminDashboard() {
 
         {error && (
           <div style={styles.errorBox}>
-            <strong>⚠️ Erreur</strong>
+            <strong>
+              ⚠️ Erreur
+            </strong>
+
             <p>{error}</p>
 
             <button
               style={styles.retryButton}
-              onClick={() => loadDashboard(false)}
+              onClick={() =>
+                loadDashboard(false)
+              }
             >
               Réessayer
             </button>
           </div>
         )}
 
-        {/* DASHBOARD */}
+        {/* =================================================
+            DASHBOARD
+           ================================================= */}
 
         {activeSection === "dashboard" && (
           <>
-            {/* STATISTIQUES */}
-
             <section style={styles.statsGrid}>
               <StatCard
                 icon="🏫"
@@ -656,20 +668,35 @@ export default function AdminDashboard() {
               />
             </section>
 
-            {/* PRÉSENCES */}
-
-            <section style={styles.attendanceBanner}>
-              <div style={styles.attendanceIcon}>✅</div>
+            <section
+              style={styles.attendanceBanner}
+            >
+              <div
+                style={styles.attendanceIcon}
+              >
+                ✅
+              </div>
 
               <div>
-                <h3 style={styles.attendanceTitle}>
+                <h3
+                  style={
+                    styles.attendanceTitle
+                  }
+                >
                   Présences aujourd'hui
                 </h3>
 
-                <p style={styles.attendanceText}>
-                  {stats.attendanceToday} enregistrement
-                  {stats.attendanceToday !== 1 ? "s" : ""} de
-                  présence aujourd'hui.
+                <p
+                  style={
+                    styles.attendanceText
+                  }
+                >
+                  {stats.attendanceToday}{" "}
+                  enregistrement
+                  {stats.attendanceToday !== 1
+                    ? "s"
+                    : ""}{" "}
+                  de présence aujourd'hui.
                 </p>
               </div>
             </section>
@@ -677,43 +704,78 @@ export default function AdminDashboard() {
             {/* CLASSES */}
 
             <section style={styles.card}>
-              <div style={styles.cardHeader}>
+              <div
+                style={styles.cardHeader}
+              >
                 <div>
-                  <h2 style={styles.cardTitle}>
+                  <h2
+                    style={styles.cardTitle}
+                  >
                     Classes de l'établissement
                   </h2>
 
-                  <p style={styles.cardSubtitle}>
-                    {classes.length} classes enregistrées
+                  <p
+                    style={
+                      styles.cardSubtitle
+                    }
+                  >
+                    {classes.length} classes
+                    enregistrées
                   </p>
                 </div>
 
                 <button
                   style={styles.smallButton}
-                  onClick={() => setActiveSection("classes")}
+                  onClick={() =>
+                    setActiveSection(
+                      "classes"
+                    )
+                  }
                 >
                   Voir toutes
                 </button>
               </div>
 
               {classes.length === 0 ? (
-                <EmptyState text="Aucune classe trouvée." />
+                <EmptyState
+                  text="Aucune classe trouvée."
+                />
               ) : (
-                <div style={styles.classesGrid}>
+                <div
+                  style={styles.classesGrid}
+                >
                   {classes.map((item) => (
                     <div
                       key={item.id}
-                      style={styles.classCard}
+                      style={
+                        styles.classCard
+                      }
                     >
-                      <div style={styles.classIcon}>🏫</div>
+                      <div
+                        style={
+                          styles.classIcon
+                        }
+                      >
+                        🏫
+                      </div>
 
                       <div>
-                        <strong style={styles.className}>
-                          {item.name || "Classe sans nom"}
+                        <strong
+                          style={
+                            styles.className
+                          }
+                        >
+                          {item.name ||
+                            "Classe sans nom"}
                         </strong>
 
-                        <span style={styles.classLevel}>
-                          {item.level || "Niveau non renseigné"}
+                        <span
+                          style={
+                            styles.classLevel
+                          }
+                        >
+                          {item.level ||
+                            "Niveau non renseigné"}
                         </span>
                       </div>
                     </div>
@@ -725,175 +787,321 @@ export default function AdminDashboard() {
             {/* DOCUMENTS RÉCENTS */}
 
             <section style={styles.card}>
-              <div style={styles.cardHeader}>
+              <div
+                style={styles.cardHeader}
+              >
                 <div>
-                  <h2 style={styles.cardTitle}>
+                  <h2
+                    style={styles.cardTitle}
+                  >
                     Documents récents
                   </h2>
 
-                  <p style={styles.cardSubtitle}>
+                  <p
+                    style={
+                      styles.cardSubtitle
+                    }
+                  >
                     Derniers documents publiés
                   </p>
                 </div>
 
                 <button
                   style={styles.smallButton}
-                  onClick={() => setActiveSection("documents")}
+                  onClick={() =>
+                    setActiveSection(
+                      "documents"
+                    )
+                  }
                 >
                   Voir tous
                 </button>
               </div>
 
-              {recentDocuments.length === 0 ? (
-                <EmptyState text="Aucun document publié." />
+              {recentDocuments.length ===
+              0 ? (
+                <EmptyState
+                  text="Aucun document publié."
+                />
               ) : (
-                <div style={styles.documentList}>
-                  {recentDocuments.map((document) => (
-                    <div
-                      key={document.id}
-                      style={styles.documentRow}
-                    >
-                      <div style={styles.documentIcon}>
-                        📄
-                      </div>
-
-                      <div style={styles.documentInfo}>
-                        <strong>
-                          {document.title || "Sans titre"}
-                        </strong>
-
-                        <span>
-                          {document.document_type || "Document"}{" "}
-                          •{" "}
-                          {formatDate(document.created_at)}
-                        </span>
-                      </div>
-
-                      {document.file_url && (
-                        <a
-                          href={document.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.openLink}
+                <div
+                  style={
+                    styles.documentList
+                  }
+                >
+                  {recentDocuments.map(
+                    (document) => (
+                      <div
+                        key={document.id}
+                        style={
+                          styles.documentRow
+                        }
+                      >
+                        <div
+                          style={
+                            styles.documentIcon
+                          }
                         >
-                          Ouvrir
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                          📄
+                        </div>
+
+                        <div
+                          style={
+                            styles.documentInfo
+                          }
+                        >
+                          <strong>
+                            {document.title ||
+                              "Sans titre"}
+                          </strong>
+
+                          <span>
+                            {document.document_type ||
+                              "Document"}{" "}
+                            •{" "}
+                            {formatDate(
+                              document.created_at
+                            )}
+                          </span>
+                        </div>
+
+                        {document.file_url && (
+                          <a
+                            href={
+                              document.file_url
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={
+                              styles.openLink
+                            }
+                          >
+                            Ouvrir
+                          </a>
+                        )}
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </section>
           </>
         )}
 
-        {/* CLASSES */}
+        {/* =================================================
+            CLASSES
+           ================================================= */}
 
         {activeSection === "classes" && (
           <section style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div
+              style={styles.cardHeader}
+            >
               <div>
-                <h2 style={styles.cardTitle}>
+                <h2
+                  style={styles.cardTitle}
+                >
                   Gestion des classes
                 </h2>
 
-                <p style={styles.cardSubtitle}>
-                  Classes actuellement enregistrées dans Supabase
+                <p
+                  style={
+                    styles.cardSubtitle
+                  }
+                >
+                  Classes actuellement
+                  enregistrées dans Supabase
                 </p>
               </div>
             </div>
 
-            {Object.keys(classesByLevel).map((level) => (
-              <div key={level} style={styles.levelSection}>
-                <h3 style={styles.levelTitle}>{level}</h3>
+            {classes.length === 0 ? (
+              <EmptyState
+                text="Aucune classe trouvée."
+              />
+            ) : (
+              Object.keys(
+                classesByLevel
+              ).map((level) => (
+                <div
+                  key={level}
+                  style={
+                    styles.levelSection
+                  }
+                >
+                  <h3
+                    style={
+                      styles.levelTitle
+                    }
+                  >
+                    {level}
+                  </h3>
 
-                <div style={styles.classesGrid}>
-                  {classesByLevel[level].map((item) => (
-                    <div
-                      key={item.id}
-                      style={styles.classCard}
-                    >
-                      <div style={styles.classIcon}>🏫</div>
+                  <div
+                    style={
+                      styles.classesGrid
+                    }
+                  >
+                    {classesByLevel[
+                      level
+                    ].map((item) => (
+                      <div
+                        key={item.id}
+                        style={
+                          styles.classCard
+                        }
+                      >
+                        <div
+                          style={
+                            styles.classIcon
+                          }
+                        >
+                          🏫
+                        </div>
 
-                      <div>
-                        <strong style={styles.className}>
-                          {item.name}
-                        </strong>
+                        <div>
+                          <strong
+                            style={
+                              styles.className
+                            }
+                          >
+                            {item.name}
+                          </strong>
 
-                        <span style={styles.classLevel}>
-                          ID : {item.id}
-                        </span>
+                          <span
+                            style={
+                              styles.classLevel
+                            }
+                          >
+                            Niveau :{" "}
+                            {item.level ||
+                              "—"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </section>
         )}
 
-        {/* ÉLÈVES */}
+        {/* =================================================
+            ÉLÈVES
+           ================================================= */}
 
         {activeSection === "students" && (
           <section style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div
+              style={styles.cardHeader}
+            >
               <div>
-                <h2 style={styles.cardTitle}>
+                <h2
+                  style={styles.cardTitle}
+                >
                   Élèves
                 </h2>
 
-                <p style={styles.cardSubtitle}>
+                <p
+                  style={
+                    styles.cardSubtitle
+                  }
+                >
                   {students.length} élève
-                  {students.length !== 1 ? "s" : ""}
+                  {students.length !== 1
+                    ? "s"
+                    : ""}
                 </p>
               </div>
             </div>
 
             {students.length === 0 ? (
-              <EmptyState text="Aucun élève trouvé." />
+              <EmptyState
+                text="Aucun élève trouvé."
+              />
             ) : (
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
+              <div
+                style={styles.tableWrapper}
+              >
+                <table
+                  style={styles.table}
+                >
                   <thead>
                     <tr>
-                      <th style={styles.th}>Élève</th>
-                      <th style={styles.th}>Classe</th>
-                      <th style={styles.th}>ID</th>
+                      <th style={styles.th}>
+                        Élève
+                      </th>
+
+                      <th style={styles.th}>
+                        Classe
+                      </th>
+
+                      <th style={styles.th}>
+                        ID
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {students.map((student) => {
-                      const classId =
-                        student.class_id ||
-                        student.classe_id;
+                    {students.map(
+                      (student) => {
+                        const classId =
+                          student.class_id ||
+                          student.classe_id;
 
-                      const studentClass = classes.find(
-                        (item) => item.id === classId
-                      );
+                        const studentClass =
+                          classes.find(
+                            (item) =>
+                              item.id ===
+                              classId
+                          );
 
-                      return (
-                        <tr key={student.id}>
-                          <td style={styles.td}>
-                            {student.full_name ||
-                              student.name ||
-                              `${student.first_name || ""} ${
-                                student.last_name || ""
-                              }`.trim() ||
-                              "Élève"}
-                          </td>
+                        const studentName =
+                          student.full_name ||
+                          student.name ||
+                          [
+                            student.first_name,
+                            student.last_name,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          "Élève";
 
-                          <td style={styles.td}>
-                            {studentClass?.name ||
-                              "Non affecté"}
-                          </td>
+                        return (
+                          <tr
+                            key={
+                              student.id
+                            }
+                          >
+                            <td
+                              style={
+                                styles.td
+                              }
+                            >
+                              {studentName}
+                            </td>
 
-                          <td style={styles.tdSmall}>
-                            {student.id}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            <td
+                              style={
+                                styles.td
+                              }
+                            >
+                              {studentClass?.name ||
+                                "Non affecté"}
+                            </td>
+
+                            <td
+                              style={
+                                styles.tdSmall
+                              }
+                            >
+                              {student.id}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -901,203 +1109,355 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* MATIÈRES */}
+        {/* =================================================
+            MATIÈRES
+           ================================================= */}
 
         {activeSection === "subjects" && (
           <section style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div
+              style={styles.cardHeader}
+            >
               <div>
-                <h2 style={styles.cardTitle}>
+                <h2
+                  style={styles.cardTitle}
+                >
                   Matières
                 </h2>
 
-                <p style={styles.cardSubtitle}>
-                  Matières disponibles dans Supabase
+                <p
+                  style={
+                    styles.cardSubtitle
+                  }
+                >
+                  Matières disponibles dans
+                  Supabase
                 </p>
               </div>
             </div>
 
             {subjects.length === 0 ? (
-              <EmptyState text="Aucune matière trouvée." />
+              <EmptyState
+                text="Aucune matière trouvée."
+              />
             ) : (
-              <div style={styles.classesGrid}>
-                {subjects.map((subject) => (
-                  <div
-                    key={subject.id}
-                    style={styles.classCard}
-                  >
-                    <div style={styles.classIcon}>📚</div>
+              <div
+                style={
+                  styles.classesGrid
+                }
+              >
+                {subjects.map(
+                  (subject) => (
+                    <div
+                      key={subject.id}
+                      style={
+                        styles.classCard
+                      }
+                    >
+                      <div
+                        style={
+                          styles.classIcon
+                        }
+                      >
+                        📚
+                      </div>
 
-                    <div>
-                      <strong style={styles.className}>
-                        {subject.name ||
-                          subject.nom ||
-                          "Matière"}
-                      </strong>
+                      <div>
+                        <strong
+                          style={
+                            styles.className
+                          }
+                        >
+                          {subject.name ||
+                            subject.nom ||
+                            "Matière"}
+                        </strong>
 
-                      <span style={styles.classLevel}>
-                        ID : {subject.id}
-                      </span>
+                        <span
+                          style={
+                            styles.classLevel
+                          }
+                        >
+                          ID :{" "}
+                          {subject.id}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </section>
         )}
 
-        {/* DOCUMENTS */}
+        {/* =================================================
+            DOCUMENTS
+           ================================================= */}
 
         {activeSection === "documents" && (
           <section style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div
+              style={styles.cardHeader}
+            >
               <div>
-                <h2 style={styles.cardTitle}>
+                <h2
+                  style={styles.cardTitle}
+                >
                   Documents pédagogiques
                 </h2>
 
-                <p style={styles.cardSubtitle}>
-                  Documents publiés par les enseignants
+                <p
+                  style={
+                    styles.cardSubtitle
+                  }
+                >
+                  Documents publiés par les
+                  enseignants
                 </p>
               </div>
             </div>
 
             {documents.length === 0 ? (
-              <EmptyState text="Aucun document trouvé." />
+              <EmptyState
+                text="Aucun document trouvé."
+              />
             ) : (
-              <div style={styles.documentList}>
-                {documents.map((document) => {
-                  const classItem = classes.find(
-                    (item) => item.id === document.class_id
-                  );
+              <div
+                style={
+                  styles.documentList
+                }
+              >
+                {documents.map(
+                  (document) => {
+                    const classItem =
+                      classes.find(
+                        (item) =>
+                          item.id ===
+                          document.class_id
+                      );
 
-                  const subjectItem = subjects.find(
-                    (item) =>
-                      String(item.id) ===
-                      String(document.subject_id)
-                  );
+                    const subjectItem =
+                      subjects.find(
+                        (item) =>
+                          String(
+                            item.id
+                          ) ===
+                          String(
+                            document.subject_id
+                          )
+                      );
 
-                  return (
-                    <div
-                      key={document.id}
-                      style={styles.documentRow}
-                    >
-                      <div style={styles.documentIcon}>
-                        📄
-                      </div>
-
-                      <div style={styles.documentInfo}>
-                        <strong>
-                          {document.title || "Sans titre"}
-                        </strong>
-
-                        <span>
-                          Type :{" "}
-                          {document.document_type || "—"}
-                        </span>
-
-                        <span>
-                          Classe :{" "}
-                          {classItem?.name || "—"}
-                        </span>
-
-                        <span>
-                          Matière :{" "}
-                          {subjectItem?.name ||
-                            subjectItem?.nom ||
-                            "—"}
-                        </span>
-                      </div>
-
-                      <div style={styles.documentDate}>
-                        {formatDate(document.created_at)}
-                      </div>
-
-                      {document.file_url && (
-                        <a
-                          href={document.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.openLink}
+                    return (
+                      <div
+                        key={
+                          document.id
+                        }
+                        style={
+                          styles.documentRow
+                        }
+                      >
+                        <div
+                          style={
+                            styles.documentIcon
+                          }
                         >
-                          Ouvrir
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
+                          📄
+                        </div>
+
+                        <div
+                          style={
+                            styles.documentInfo
+                          }
+                        >
+                          <strong>
+                            {document.title ||
+                              "Sans titre"}
+                          </strong>
+
+                          <span>
+                            Type :{" "}
+                            {document.document_type ||
+                              "—"}
+                          </span>
+
+                          <span>
+                            Classe :{" "}
+                            {classItem?.name ||
+                              "—"}
+                          </span>
+
+                          <span>
+                            Matière :{" "}
+                            {subjectItem?.name ||
+                              subjectItem?.nom ||
+                              "—"}
+                          </span>
+                        </div>
+
+                        <div
+                          style={
+                            styles.documentDate
+                          }
+                        >
+                          {formatDate(
+                            document.created_at
+                          )}
+                        </div>
+
+                        {document.file_url && (
+                          <a
+                            href={
+                              document.file_url
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={
+                              styles.openLink
+                            }
+                          >
+                            Ouvrir
+                          </a>
+                        )}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             )}
           </section>
         )}
 
-        {/* PRÉSENCES */}
+        {/* =================================================
+            PRÉSENCES
+           ================================================= */}
 
         {activeSection === "attendance" && (
           <section style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div
+              style={styles.cardHeader}
+            >
               <div>
-                <h2 style={styles.cardTitle}>
+                <h2
+                  style={styles.cardTitle}
+                >
                   Présences du jour
                 </h2>
 
-                <p style={styles.cardSubtitle}>
-                  {attendance.length} enregistrement
-                  {attendance.length !== 1 ? "s" : ""}
+                <p
+                  style={
+                    styles.cardSubtitle
+                  }
+                >
+                  {attendance.length}{" "}
+                  enregistrement
+                  {attendance.length !== 1
+                    ? "s"
+                    : ""}
                 </p>
               </div>
             </div>
 
             {attendance.length === 0 ? (
-              <EmptyState text="Aucun enregistrement de présence aujourd'hui." />
+              <EmptyState
+                text="Aucun enregistrement de présence aujourd'hui."
+              />
             ) : (
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
+              <div
+                style={
+                  styles.tableWrapper
+                }
+              >
+                <table
+                  style={styles.table}
+                >
                   <thead>
                     <tr>
-                      <th style={styles.th}>Élève</th>
-                      <th style={styles.th}>Statut</th>
-                      <th style={styles.th}>Heure</th>
+                      <th style={styles.th}>
+                        Élève
+                      </th>
+
+                      <th style={styles.th}>
+                        Statut
+                      </th>
+
+                      <th style={styles.th}>
+                        Heure
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {attendance.map((item) => {
-                      const studentId =
-                        item.student_id ||
-                        item.studentId;
+                    {attendance.map(
+                      (item) => {
+                        const studentId =
+                          item.student_id ||
+                          item.studentId;
 
-                      const student = students.find(
-                        (studentItem) =>
-                          studentItem.id === studentId
-                      );
+                        const student =
+                          students.find(
+                            (
+                              studentItem
+                            ) =>
+                              studentItem.id ===
+                              studentId
+                          );
 
-                      const status =
-                        item.status ||
-                        item.type ||
-                        item.event_type ||
-                        "Présence";
+                        const status =
+                          item.status ||
+                          item.type ||
+                          item.event_type ||
+                          "Présence";
 
-                      return (
-                        <tr key={item.id}>
-                          <td style={styles.td}>
-                            {student?.full_name ||
-                              student?.name ||
-                              "Élève"}
-                          </td>
+                        const studentName =
+                          student?.full_name ||
+                          student?.name ||
+                          [
+                            student?.first_name,
+                            student?.last_name,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          "Élève";
 
-                          <td style={styles.td}>
-                            <span style={styles.statusBadge}>
-                              {status}
-                            </span>
-                          </td>
+                        return (
+                          <tr
+                            key={item.id}
+                          >
+                            <td
+                              style={
+                                styles.td
+                              }
+                            >
+                              {studentName}
+                            </td>
 
-                          <td style={styles.td}>
-                            {formatTime(item.created_at)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            <td
+                              style={
+                                styles.td
+                              }
+                            >
+                              <span
+                                style={
+                                  styles.statusBadge
+                                }
+                              >
+                                {status}
+                              </span>
+                            </td>
+
+                            <td
+                              style={
+                                styles.td
+                              }
+                            >
+                              {formatTime(
+                                item.created_at
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1108,17 +1468,18 @@ export default function AdminDashboard() {
         {/* FOOTER */}
 
         <footer style={styles.footer}>
-          École Connectée © {new Date().getFullYear()} — 
-          Gestion scolaire intelligente
+          École Connectée ©{" "}
+          {new Date().getFullYear()} — Gestion
+          scolaire intelligente
         </footer>
       </main>
     </div>
   );
 }
 
-// =========================================================
-// COMPOSANT STAT CARD
-// =========================================================
+/* =========================================================
+   STAT CARD
+   ========================================================= */
 
 function StatCard({
   icon,
@@ -1128,16 +1489,24 @@ function StatCard({
 }) {
   return (
     <div style={styles.statCard}>
-      <div style={styles.statIcon}>{icon}</div>
+      <div style={styles.statIcon}>
+        {icon}
+      </div>
 
       <div>
-        <p style={styles.statTitle}>{title}</p>
+        <p style={styles.statTitle}>
+          {title}
+        </p>
 
         <strong style={styles.statValue}>
           {value}
         </strong>
 
-        <p style={styles.statDescription}>
+        <p
+          style={
+            styles.statDescription
+          }
+        >
           {description}
         </p>
       </div>
@@ -1145,22 +1514,25 @@ function StatCard({
   );
 }
 
-// =========================================================
-// EMPTY STATE
-// =========================================================
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
 
 function EmptyState({ text }) {
   return (
     <div style={styles.empty}>
-      <div style={styles.emptyIcon}>📭</div>
+      <div style={styles.emptyIcon}>
+        📭
+      </div>
+
       <p>{text}</p>
     </div>
   );
 }
 
-// =========================================================
-// STYLES
-// =========================================================
+/* =========================================================
+   STYLES
+   ========================================================= */
 
 const styles = {
   page: {
@@ -1376,7 +1748,8 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "15px",
-    boxShadow: "0 2px 8px rgba(15, 35, 60, 0.03)",
+    boxShadow:
+      "0 2px 8px rgba(15, 35, 60, 0.03)",
   },
 
   statIcon: {
@@ -1447,7 +1820,8 @@ const styles = {
     borderRadius: "16px",
     padding: "20px",
     marginBottom: "18px",
-    boxShadow: "0 2px 8px rgba(15, 35, 60, 0.03)",
+    boxShadow:
+      "0 2px 8px rgba(15, 35, 60, 0.03)",
   },
 
   cardHeader: {
@@ -1555,15 +1929,6 @@ const styles = {
     gap: "3px",
   },
 
-  documentInfoStrong: {
-    fontWeight: "700",
-  },
-
-  documentInfoSpan: {
-    color: "#8792a3",
-    fontSize: "12px",
-  },
-
   documentDate: {
     color: "#8894a5",
     fontSize: "12px",
@@ -1606,18 +1971,21 @@ const styles = {
     background: "#f7f9fc",
     color: "#68758a",
     fontSize: "12px",
-    borderBottom: "1px solid #e8ecf2",
+    borderBottom:
+      "1px solid #e8ecf2",
   },
 
   td: {
     padding: "13px 12px",
-    borderBottom: "1px solid #edf0f4",
+    borderBottom:
+      "1px solid #edf0f4",
     fontSize: "13px",
   },
 
   tdSmall: {
     padding: "13px 12px",
-    borderBottom: "1px solid #edf0f4",
+    borderBottom:
+      "1px solid #edf0f4",
     fontSize: "11px",
     color: "#8994a5",
     wordBreak: "break-all",
@@ -1665,9 +2033,11 @@ const styles = {
     width: "38px",
     height: "38px",
     border: "4px solid #dce8f5",
-    borderTop: "4px solid #0b65c2",
+    borderTop:
+      "4px solid #0b65c2",
     borderRadius: "50%",
-    animation: "spin 1s linear infinite",
+    animation:
+      "spin 1s linear infinite",
     marginBottom: "15px",
   },
 };

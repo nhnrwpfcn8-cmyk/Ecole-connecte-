@@ -4,14 +4,17 @@ import { supabase } from "./src/lib/supabase";
 export default function TeacherDashboard({ session, onLogout }) {
   const [documents, setDocuments] = useState([]);
   const [exercises, setExercises] = useState([]);
+
+  // Toutes les classes/matieres de l'ecole
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
-  // CLASSES ET MATIERES ENSEIGNEES PAR LE PROFESSEUR
+  // Classes et matieres attribuees au professeur
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [teacherSubjects, setTeacherSubjects] = useState([]);
 
   const [schoolId, setSchoolId] = useState(null);
+  const [teacherName, setTeacherName] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -22,52 +25,82 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [showExerciseForm, setShowExerciseForm] =
     useState(false);
 
+  // ================================
   // DOCUMENT
+  // ================================
+
   const [title, setTitle] = useState("");
   const [description, setDescription] =
     useState("");
+
   const [documentType, setDocumentType] =
     useState("lecon");
+
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] =
     useState("");
+
   const [file, setFile] = useState(null);
+
   const [uploading, setUploading] =
     useState(false);
 
+  // ================================
   // EXERCICE
+  // ================================
+
   const [exerciseTitle, setExerciseTitle] =
     useState("");
+
   const [exerciseDescription, setExerciseDescription] =
     useState("");
+
   const [instructions, setInstructions] =
     useState("");
+
   const [duration, setDuration] =
     useState("30");
+
   const [exerciseClassId, setExerciseClassId] =
     useState("");
+
   const [exerciseSubjectId, setExerciseSubjectId] =
     useState("");
+
   const [publishingExercise, setPublishingExercise] =
     useState(false);
 
+  // ================================
+  // CHARGEMENT
+  // ================================
+
   useEffect(() => {
-    loadData();
-  }, []);
+    if (session?.user?.id) {
+      loadData();
+    }
+  }, [session]);
 
   async function loadData() {
     setLoading(true);
     setMessage("");
 
     try {
-      // PROFIL DU PROFESSEUR
+      // ==========================================
+      // 1. PROFIL DU PROFESSEUR
+      // ==========================================
+
       const {
         data: profile,
         error: profileError
       } = await supabase
         .from("profiles")
-        .select("id, full_name, role, school_id")
-        .eq("id", session.user.id)
+        .select(
+          "id, full_name, role, school_id"
+        )
+        .eq(
+          "id",
+          session.user.id
+        )
         .single();
 
       if (profileError) {
@@ -75,82 +108,113 @@ export default function TeacherDashboard({ session, onLogout }) {
       }
 
       setSchoolId(profile.school_id);
+      setTeacherName(
+        profile.full_name || "Professeur"
+      );
 
-      // CHARGER DOCUMENTS, EXERCICES, CLASSES ET MATIERES
-      const [
-        documentsResult,
-        exercisesResult,
-        classesResult,
-        subjectsResult
-      ] = await Promise.all([
-        supabase
-          .from("documents")
-          .select("*")
-          .eq(
-            "teacher_id",
-            session.user.id
-          )
-          .order("created_at", {
-            ascending: false
-          }),
+      // ==========================================
+      // 2. DOCUMENTS
+      // ==========================================
 
-        supabase
-          .from("exercises")
-          .select("*")
-          .eq(
-            "teacher_id",
-            session.user.id
-          )
-          .order("created_at", {
-            ascending: false
-          }),
+      const {
+        data: documentsData,
+        error: documentsError
+      } = await supabase
+        .from("documents")
+        .select("*")
+        .eq(
+          "teacher_id",
+          session.user.id
+        )
+        .order("created_at", {
+          ascending: false
+        });
 
-        supabase
-          .from("classes")
-          .select("*")
-          .order("name"),
-
-        supabase
-          .from("subjects")
-          .select("*")
-          .order("name")
-      ]);
-
-      if (documentsResult.error) {
-        throw documentsResult.error;
-      }
-
-      if (exercisesResult.error) {
-        throw exercisesResult.error;
-      }
-
-      if (classesResult.error) {
-        throw classesResult.error;
-      }
-
-      if (subjectsResult.error) {
-        throw subjectsResult.error;
+      if (documentsError) {
+        throw documentsError;
       }
 
       setDocuments(
-        documentsResult.data || []
+        documentsData || []
       );
+
+      // ==========================================
+      // 3. EXERCICES
+      // ==========================================
+
+      const {
+        data: exercisesData,
+        error: exercisesError
+      } = await supabase
+        .from("exercises")
+        .select("*")
+        .eq(
+          "teacher_id",
+          session.user.id
+        )
+        .order("created_at", {
+          ascending: false
+        });
+
+      if (exercisesError) {
+        throw exercisesError;
+      }
 
       setExercises(
-        exercisesResult.data || []
+        exercisesData || []
       );
+
+      // ==========================================
+      // 4. TOUTES LES CLASSES DE L'ECOLE
+      // ==========================================
+
+      const {
+        data: allClasses,
+        error: classesError
+      } = await supabase
+        .from("classes")
+        .select(
+          "id, name, level, school_id"
+        )
+        .eq(
+          "school_id",
+          profile.school_id
+        )
+        .order("name");
+
+      if (classesError) {
+        throw classesError;
+      }
 
       setClasses(
-        classesResult.data || []
+        allClasses || []
       );
+
+      // ==========================================
+      // 5. TOUTES LES MATIERES
+      // ==========================================
+
+      const {
+        data: allSubjects,
+        error: subjectsError
+      } = await supabase
+        .from("subjects")
+        .select(
+          "id, name"
+        )
+        .order("name");
+
+      if (subjectsError) {
+        throw subjectsError;
+      }
 
       setSubjects(
-        subjectsResult.data || []
+        allSubjects || []
       );
 
-      // =====================================================
-      // CLASSES ET MATIERES ENSEIGNEES PAR CE PROFESSEUR
-      // =====================================================
+      // ==========================================
+      // 6. ATTRIBUTIONS DU PROFESSEUR
+      // ==========================================
 
       const {
         data: assignments,
@@ -172,33 +236,59 @@ export default function TeacherDashboard({ session, onLogout }) {
       const assignmentRows =
         assignments || [];
 
-      // RECUPERER LES ID DES CLASSES
-      const classIds = [
+      // ==========================================
+      // 7. ID DES CLASSES ATTRIBUEES
+      // ==========================================
+
+      const assignedClassIds = [
         ...new Set(
           assignmentRows
-            .map((item) => item.class_id)
+            .map(
+              (item) =>
+                item.class_id
+            )
             .filter(Boolean)
         )
       ];
 
-      // RECUPERER LES ID DES MATIERES
-      const subjectIds = [
+      // ==========================================
+      // 8. ID DES MATIERES ATTRIBUEES
+      // ==========================================
+
+      const assignedSubjectIds = [
         ...new Set(
           assignmentRows
-            .map((item) => item.subject_id)
-            .filter(Boolean)
+            .map(
+              (item) =>
+                item.subject_id
+            )
+            .filter(
+              (id) =>
+                id !== null &&
+                id !== undefined
+            )
         )
       ];
 
-      // CLASSES ENSEIGNEES
-      if (classIds.length > 0) {
+      // ==========================================
+      // 9. CLASSES ATTRIBUEES
+      // ==========================================
+
+      if (
+        assignedClassIds.length > 0
+      ) {
         const {
           data: assignedClasses,
           error: assignedClassesError
         } = await supabase
           .from("classes")
-          .select("id, name, level")
-          .in("id", classIds)
+          .select(
+            "id, name, level, school_id"
+          )
+          .in(
+            "id",
+            assignedClassIds
+          )
           .order("name");
 
         if (assignedClassesError) {
@@ -212,15 +302,25 @@ export default function TeacherDashboard({ session, onLogout }) {
         setTeacherClasses([]);
       }
 
-      // MATIERES ENSEIGNEES
-      if (subjectIds.length > 0) {
+      // ==========================================
+      // 10. MATIERES ATTRIBUEES
+      // ==========================================
+
+      if (
+        assignedSubjectIds.length > 0
+      ) {
         const {
           data: assignedSubjects,
           error: assignedSubjectsError
         } = await supabase
           .from("subjects")
-          .select("id, name")
-          .in("id", subjectIds)
+          .select(
+            "id, name"
+          )
+          .in(
+            "id",
+            assignedSubjectIds
+          )
           .order("name");
 
         if (assignedSubjectsError) {
@@ -235,15 +335,23 @@ export default function TeacherDashboard({ session, onLogout }) {
       }
 
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erreur loadData :",
+        error
+      );
 
       setMessage(
-        "Erreur : " + error.message
+        "Erreur : " +
+        error.message
       );
     } finally {
       setLoading(false);
     }
   }
+
+  // ==========================================
+  // PUBLICATION DOCUMENT
+  // ==========================================
 
   async function publishDocument() {
     setMessage("");
@@ -360,6 +468,10 @@ export default function TeacherDashboard({ session, onLogout }) {
       setUploading(false);
     }
   }
+
+  // ==========================================
+  // PUBLICATION EXERCICE
+  // ==========================================
 
   async function publishExercise() {
     setMessage("");
@@ -479,6 +591,10 @@ export default function TeacherDashboard({ session, onLogout }) {
     }
   }
 
+  // ==========================================
+  // CHARGEMENT
+  // ==========================================
+
   if (loading) {
     return (
       <div className="center">
@@ -487,14 +603,22 @@ export default function TeacherDashboard({ session, onLogout }) {
     );
   }
 
+  // ==========================================
+  // INTERFACE
+  // ==========================================
+
   return (
     <main className="page">
       <section className="card dashboard">
 
-        {/* HEADER */}
+        {/* ================================
+            HEADER
+        ================================= */}
 
         <div className="top">
+
           <div>
+
             <p className="eyebrow">
               ÉCOLE CONNECTÉE
             </p>
@@ -504,8 +628,16 @@ export default function TeacherDashboard({ session, onLogout }) {
             </h1>
 
             <p>
+              Bonjour{" "}
+              <strong>
+                {teacherName}
+              </strong>
+            </p>
+
+            <p>
               {session.user.email}
             </p>
+
           </div>
 
           <button
@@ -514,11 +646,12 @@ export default function TeacherDashboard({ session, onLogout }) {
           >
             Déconnexion
           </button>
+
         </div>
 
-        {/* =================================================
+        {/* ================================
             MON ENSEIGNEMENT
-        ================================================= */}
+        ================================= */}
 
         <div className="notice">
 
@@ -527,59 +660,71 @@ export default function TeacherDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Voici les classes et matières
-            qui vous sont attribuées.
+            Retrouvez ici les classes et
+            matières qui vous sont attribuées.
           </p>
 
           <div className="grid">
 
+            {/* MATIERES */}
+
             <div className="stat">
 
               <strong>
-                📚 Matières
+                📚 Mes matières
               </strong>
 
               {teacherSubjects.length === 0 ? (
+
                 <span>
                   Aucune matière attribuée
                 </span>
+
               ) : (
+
                 teacherSubjects.map(
                   (subject) => (
                     <span
                       key={subject.id}
                     >
-                      {subject.name}
+                      • {subject.name}
                     </span>
                   )
                 )
+
               )}
 
             </div>
 
+            {/* CLASSES */}
+
             <div className="stat">
 
               <strong>
-                🏫 Classes
+                🎓 Mes classes
               </strong>
 
               {teacherClasses.length === 0 ? (
+
                 <span>
                   Aucune classe attribuée
                 </span>
+
               ) : (
+
                 teacherClasses.map(
                   (teacherClass) => (
                     <span
                       key={teacherClass.id}
                     >
-                      {teacherClass.name}
+                      • {teacherClass.name}
                       {teacherClass.level
                         ? ` • ${teacherClass.level}`
                         : ""}
                     </span>
                   )
                 )
+
               )}
 
             </div>
@@ -588,11 +733,14 @@ export default function TeacherDashboard({ session, onLogout }) {
 
         </div>
 
-        {/* STATISTIQUES */}
+        {/* ================================
+            STATISTIQUES
+        ================================= */}
 
         <div className="grid">
 
           <div className="stat">
+
             <strong>
               {documents.length}
             </strong>
@@ -600,9 +748,11 @@ export default function TeacherDashboard({ session, onLogout }) {
             <span>
               Publications
             </span>
+
           </div>
 
           <div className="stat">
+
             <strong>
               {exercises.length}
             </strong>
@@ -610,41 +760,52 @@ export default function TeacherDashboard({ session, onLogout }) {
             <span>
               Exercices
             </span>
+
           </div>
 
           <div className="stat">
+
             <strong>
-              {classes.length}
+              {teacherClasses.length}
             </strong>
 
             <span>
-              Classes
+              Mes classes
             </span>
+
           </div>
 
           <div className="stat">
+
             <strong>
-              {subjects.length}
+              {teacherSubjects.length}
             </strong>
 
             <span>
-              Matières
+              Mes matières
             </span>
+
           </div>
 
         </div>
 
-        {/* MESSAGE */}
+        {/* ================================
+            MESSAGE
+        ================================= */}
 
         {message && (
           <div className="notice">
+
             <p className="message">
               {message}
             </p>
+
           </div>
         )}
 
-        {/* DOCUMENTS */}
+        {/* ================================
+            DOCUMENTS
+        ================================= */}
 
         <div className="notice">
 
@@ -672,6 +833,8 @@ export default function TeacherDashboard({ session, onLogout }) {
 
         </div>
 
+        {/* FORMULAIRE DOCUMENT */}
+
         {showDocumentForm && (
           <div className="card">
 
@@ -691,6 +854,7 @@ export default function TeacherDashboard({ session, onLogout }) {
                 )
               }
             >
+
               <option value="lecon">
                 Leçon
               </option>
@@ -714,7 +878,10 @@ export default function TeacherDashboard({ session, onLogout }) {
               <option value="autre">
                 Autre
               </option>
+
             </select>
+
+            {/* CLASSE ATTRIBUEE */}
 
             <label>
               Classe
@@ -728,19 +895,28 @@ export default function TeacherDashboard({ session, onLogout }) {
                 )
               }
             >
+
               <option value="">
                 Choisir une classe
               </option>
 
-              {classes.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {teacherClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                    {item.level
+                      ? ` • ${item.level}`
+                      : ""}
+                  </option>
+                )
+              )}
+
             </select>
+
+            {/* MATIERE ATTRIBUEE */}
 
             <label>
               Matière
@@ -754,18 +930,22 @@ export default function TeacherDashboard({ session, onLogout }) {
                 )
               }
             >
+
               <option value="">
                 Choisir une matière
               </option>
 
-              {subjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {teacherSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
+
             </select>
 
             <label>
@@ -818,15 +998,19 @@ export default function TeacherDashboard({ session, onLogout }) {
               }
               disabled={uploading}
             >
+
               {uploading
                 ? "Publication en cours..."
                 : "📤 Publier"}
+
             </button>
 
           </div>
         )}
 
-        {/* EXERCICES */}
+        {/* ================================
+            EXERCICES
+        ================================= */}
 
         <div className="notice">
 
@@ -847,12 +1031,16 @@ export default function TeacherDashboard({ session, onLogout }) {
               )
             }
           >
+
             {showExerciseForm
               ? "Fermer"
               : "+ Nouvel exercice"}
+
           </button>
 
         </div>
+
+        {/* FORMULAIRE EXERCICE */}
 
         {showExerciseForm && (
           <div className="card">
@@ -873,18 +1061,25 @@ export default function TeacherDashboard({ session, onLogout }) {
                 )
               }
             >
+
               <option value="">
                 Choisir une classe
               </option>
 
-              {classes.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {teacherClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                    {item.level
+                      ? ` • ${item.level}`
+                      : ""}
+                  </option>
+                )
+              )}
+
             </select>
 
             <label>
@@ -899,18 +1094,22 @@ export default function TeacherDashboard({ session, onLogout }) {
                 )
               }
             >
+
               <option value="">
                 Choisir une matière
               </option>
 
-              {subjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {teacherSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
+
             </select>
 
             <label>
@@ -979,15 +1178,19 @@ export default function TeacherDashboard({ session, onLogout }) {
                 publishingExercise
               }
             >
+
               {publishingExercise
                 ? "Publication en cours..."
                 : "🚀 Publier l'exercice"}
+
             </button>
 
           </div>
         )}
 
-        {/* LISTE EXERCICES */}
+        {/* ================================
+            MES EXERCICES
+        ================================= */}
 
         <div className="notice">
 
@@ -996,34 +1199,44 @@ export default function TeacherDashboard({ session, onLogout }) {
           </h2>
 
           {exercises.length === 0 ? (
+
             <p>
               Vous n'avez encore créé
               aucun exercice.
             </p>
-          ) : (
-            exercises.map((exercise) => (
-              <div
-                key={exercise.id}
-                className="stat"
-              >
-                <strong>
-                  {exercise.title}
-                </strong>
 
-                <span>
-                  {exercise.duration_minutes} min
-                  {" • "}
-                  {exercise.published
-                    ? "Publié"
-                    : "Brouillon"}
-                </span>
-              </div>
-            ))
+          ) : (
+
+            exercises.map(
+              (exercise) => (
+                <div
+                  key={exercise.id}
+                  className="stat"
+                >
+
+                  <strong>
+                    {exercise.title}
+                  </strong>
+
+                  <span>
+                    {exercise.duration_minutes}
+                    {" min • "}
+                    {exercise.published
+                      ? "Publié"
+                      : "Brouillon"}
+                  </span>
+
+                </div>
+              )
+            )
+
           )}
 
         </div>
 
-        {/* PUBLICATIONS */}
+        {/* ================================
+            MES PUBLICATIONS
+        ================================= */}
 
         <div className="notice">
 
@@ -1032,25 +1245,33 @@ export default function TeacherDashboard({ session, onLogout }) {
           </h2>
 
           {documents.length === 0 ? (
+
             <p>
               Vous n'avez encore publié
               aucun document.
             </p>
-          ) : (
-            documents.map((document) => (
-              <div
-                key={document.id}
-                className="stat"
-              >
-                <strong>
-                  {document.title}
-                </strong>
 
-                <span>
-                  {document.document_type}
-                </span>
-              </div>
-            ))
+          ) : (
+
+            documents.map(
+              (document) => (
+                <div
+                  key={document.id}
+                  className="stat"
+                >
+
+                  <strong>
+                    {document.title}
+                  </strong>
+
+                  <span>
+                    {document.document_type}
+                  </span>
+
+                </div>
+              )
+            )
+
           )}
 
         </div>

@@ -87,11 +87,12 @@ export default function AdminDashboard({
     useState(null);
 
   const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    school_id: "",
-  });
+  full_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  school_id: "",
+});
 
   const [studentForm, setStudentForm] = useState({
     school_id: "",
@@ -671,7 +672,19 @@ export default function AdminDashboard({
       );
       return;
     }
+if (!teacherForm.password) {
+  setMessage(
+    "Veuillez saisir un mot de passe."
+  );
+  return;
+}
 
+if (teacherForm.password.length < 6) {
+  setMessage(
+    "Le mot de passe doit contenir au moins 6 caractères."
+  );
+  return;
+}
     if (!teacherForm.school_id) {
       setMessage(
         "Veuillez sélectionner une école."

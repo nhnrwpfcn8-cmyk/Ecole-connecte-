@@ -7,6 +7,10 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
+  // CLASSES ET MATIERES ENSEIGNEES PAR LE PROFESSEUR
+  const [teacherClasses, setTeacherClasses] = useState([]);
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
+
   const [schoolId, setSchoolId] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -72,7 +76,7 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       setSchoolId(profile.school_id);
 
-      // CHARGER DOCUMENTS, EXERCICES, CLASSES ET MATIÈRES
+      // CHARGER DOCUMENTS, EXERCICES, CLASSES ET MATIERES
       const [
         documentsResult,
         exercisesResult,
@@ -143,6 +147,92 @@ export default function TeacherDashboard({ session, onLogout }) {
       setSubjects(
         subjectsResult.data || []
       );
+
+      // =====================================================
+      // CLASSES ET MATIERES ENSEIGNEES PAR CE PROFESSEUR
+      // =====================================================
+
+      const {
+        data: assignments,
+        error: assignmentsError
+      } = await supabase
+        .from("teacher_classes")
+        .select(
+          "id, teacher_id, class_id, subject_id"
+        )
+        .eq(
+          "teacher_id",
+          session.user.id
+        );
+
+      if (assignmentsError) {
+        throw assignmentsError;
+      }
+
+      const assignmentRows =
+        assignments || [];
+
+      // RECUPERER LES ID DES CLASSES
+      const classIds = [
+        ...new Set(
+          assignmentRows
+            .map((item) => item.class_id)
+            .filter(Boolean)
+        )
+      ];
+
+      // RECUPERER LES ID DES MATIERES
+      const subjectIds = [
+        ...new Set(
+          assignmentRows
+            .map((item) => item.subject_id)
+            .filter(Boolean)
+        )
+      ];
+
+      // CLASSES ENSEIGNEES
+      if (classIds.length > 0) {
+        const {
+          data: assignedClasses,
+          error: assignedClassesError
+        } = await supabase
+          .from("classes")
+          .select("id, name, level")
+          .in("id", classIds)
+          .order("name");
+
+        if (assignedClassesError) {
+          throw assignedClassesError;
+        }
+
+        setTeacherClasses(
+          assignedClasses || []
+        );
+      } else {
+        setTeacherClasses([]);
+      }
+
+      // MATIERES ENSEIGNEES
+      if (subjectIds.length > 0) {
+        const {
+          data: assignedSubjects,
+          error: assignedSubjectsError
+        } = await supabase
+          .from("subjects")
+          .select("id, name")
+          .in("id", subjectIds)
+          .order("name");
+
+        if (assignedSubjectsError) {
+          throw assignedSubjectsError;
+        }
+
+        setTeacherSubjects(
+          assignedSubjects || []
+        );
+      } else {
+        setTeacherSubjects([]);
+      }
 
     } catch (error) {
       console.error(error);
@@ -220,16 +310,22 @@ export default function TeacherDashboard({ session, onLogout }) {
         .insert({
           teacher_id:
             session.user.id,
+
           class_id:
             classId,
+
           subject_id:
             Number(subjectId),
+
           title:
             title.trim(),
+
           description:
             description.trim(),
+
           document_type:
             documentType,
+
           file_url:
             publicUrlData.publicUrl
         });
@@ -418,6 +514,78 @@ export default function TeacherDashboard({ session, onLogout }) {
           >
             Déconnexion
           </button>
+        </div>
+
+        {/* =================================================
+            MON ENSEIGNEMENT
+        ================================================= */}
+
+        <div className="notice">
+
+          <h2>
+            👨‍🏫 Mon enseignement
+          </h2>
+
+          <p>
+            Voici les classes et matières
+            qui vous sont attribuées.
+          </p>
+
+          <div className="grid">
+
+            <div className="stat">
+
+              <strong>
+                📚 Matières
+              </strong>
+
+              {teacherSubjects.length === 0 ? (
+                <span>
+                  Aucune matière attribuée
+                </span>
+              ) : (
+                teacherSubjects.map(
+                  (subject) => (
+                    <span
+                      key={subject.id}
+                    >
+                      {subject.name}
+                    </span>
+                  )
+                )
+              )}
+
+            </div>
+
+            <div className="stat">
+
+              <strong>
+                🏫 Classes
+              </strong>
+
+              {teacherClasses.length === 0 ? (
+                <span>
+                  Aucune classe attribuée
+                </span>
+              ) : (
+                teacherClasses.map(
+                  (teacherClass) => (
+                    <span
+                      key={teacherClass.id}
+                    >
+                      {teacherClass.name}
+                      {teacherClass.level
+                        ? ` • ${teacherClass.level}`
+                        : ""}
+                    </span>
+                  )
+                )
+              )}
+
+            </div>
+
+          </div>
+
         </div>
 
         {/* STATISTIQUES */}

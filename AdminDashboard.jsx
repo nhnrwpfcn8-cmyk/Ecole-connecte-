@@ -1,7 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "./src/lib/supabase";
 
-export default function AdminDashboard({ session, onLogout }) {
+export default function AdminDashboard({
+  session,
+  onLogout,
+}) {
+  // =========================================================
+  // ÉTATS
+  // =========================================================
+
   const [stats, setStats] = useState({
     teachers: 0,
     students: 0,
@@ -32,23 +44,47 @@ export default function AdminDashboard({ session, onLogout }) {
   const [adminDocuments, setAdminDocuments] = useState([]);
   const [adminExercises, setAdminExercises] = useState([]);
   const [adminAttendance, setAdminAttendance] = useState([]);
-  const [adminNotifications, setAdminNotifications] = useState([]);
-  const [adminControlLoading, setAdminControlLoading] = useState(false);
-  const [adminControlTab, setAdminControlTab] = useState("documents");
+  const [adminNotifications, setAdminNotifications] =
+    useState([]);
 
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [adminControlLoading, setAdminControlLoading] =
+    useState(false);
 
-  const [showTeacherForm, setShowTeacherForm] = useState(false);
-  const [showStudentForm, setShowStudentForm] = useState(false);
-  const [showSchoolForm, setShowSchoolForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [adminControlTab, setAdminControlTab] =
+    useState("documents");
 
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editingSchool, setEditingSchool] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editingSubject, setEditingSubject] = useState(null);
+  const [activeSection, setActiveSection] =
+    useState("dashboard");
+
+  const [showTeacherForm, setShowTeacherForm] =
+    useState(false);
+
+  const [showStudentForm, setShowStudentForm] =
+    useState(false);
+
+  const [showSchoolForm, setShowSchoolForm] =
+    useState(false);
+
+  const [showClassForm, setShowClassForm] =
+    useState(false);
+
+  const [showSubjectForm, setShowSubjectForm] =
+    useState(false);
+
+  const [editingTeacher, setEditingTeacher] =
+    useState(null);
+
+  const [editingStudent, setEditingStudent] =
+    useState(null);
+
+  const [editingSchool, setEditingSchool] =
+    useState(null);
+
+  const [editingClass, setEditingClass] =
+    useState(null);
+
+  const [editingSubject, setEditingSubject] =
+    useState(null);
 
   const [teacherForm, setTeacherForm] = useState({
     full_name: "",
@@ -87,9 +123,73 @@ export default function AdminDashboard({ session, onLogout }) {
     name: "",
   });
 
+  // =========================================================
+  // INITIALISATION
+  // =========================================================
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // =========================================================
+  // HELPERS SUPABASE
+  // =========================================================
+
+  async function loadProfilesByRole(role) {
+    /*
+      On essaie d'abord avec active.
+      Si la colonne active n'existe pas dans profiles,
+      on recharge sans active.
+
+      Cela évite que le tableau de bord plante simplement
+      parce que profiles.active n'est pas présente.
+    */
+
+    let result = await supabase
+      .from("profiles")
+      .select(
+        "id, full_name, phone, role, school_id, active"
+      )
+      .eq("role", role)
+      .order("full_name");
+
+    if (
+      result.error &&
+      result.error.message
+        ?.toLowerCase()
+        .includes("active")
+    ) {
+      result = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, phone, role, school_id"
+        )
+        .eq("role", role)
+        .order("full_name");
+    }
+
+    return result;
+  }
+
+  function showError(prefix, error) {
+    console.error(prefix, error);
+
+    setMessage(
+      `❌ ${prefix} : ${
+        error?.message || "Erreur inconnue"
+      }`
+    );
+  }
+
+  function formatDate(date) {
+    if (!date) return "Non renseignée";
+
+    try {
+      return new Date(date).toLocaleString("fr-FR");
+    } catch {
+      return String(date);
+    }
+  }
 
   // =========================================================
   // CHARGEMENT PRINCIPAL
@@ -113,58 +213,90 @@ export default function AdminDashboard({ session, onLogout }) {
         questionsResult,
         notificationsResult,
       ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id, full_name, phone, role, school_id, active"
-          )
-          .eq("role", "teacher")
-          .order("full_name"),
+        loadProfilesByRole("teacher"),
 
         supabase
           .from("students")
           .select(
-            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
+            `
+              id,
+              school_id,
+              class_id,
+              first_name,
+              last_name,
+              student_code,
+              photo_url,
+              active,
+              created_at
+            `
           )
           .order("last_name"),
 
-        supabase
-          .from("profiles")
-          .select(
-            "id, full_name, phone, role, school_id, active"
-          )
-          .eq("role", "parent")
-          .order("full_name"),
+        loadProfilesByRole("parent"),
 
         supabase
           .from("parent_students")
           .select(
-            "parent_id, student_id, relationship, created_at"
+            `
+              parent_id,
+              student_id,
+              relationship,
+              created_at
+            `
           ),
 
         supabase
           .from("schools")
           .select(
-            "id, name, address, city, phone, email"
+            `
+              id,
+              name,
+              address,
+              city,
+              phone,
+              email,
+              created_at
+            `
           )
           .order("name"),
 
         supabase
           .from("classes")
           .select(
-            "id, school_id, name, level"
+            `
+              id,
+              school_id,
+              name,
+              level,
+              created_at
+            `
           )
           .order("name"),
 
         supabase
           .from("subjects")
-          .select("id, name")
+          .select(
+            `
+              id,
+              name
+            `
+          )
           .order("name"),
 
         supabase
           .from("documents")
           .select(
-            "id, teacher_id, class_id, subject_id, title, description, document_type, file_url, created_at"
+            `
+              id,
+              teacher_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              document_type,
+              file_url,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
@@ -173,7 +305,19 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("exercises")
           .select(
-            "id, teacher_id, school_id, class_id, subject_id, title, description, instructions, duration_minutes, published, created_at"
+            `
+              id,
+              teacher_id,
+              school_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              instructions,
+              duration_minutes,
+              published,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
@@ -182,19 +326,42 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("exercise_questions")
           .select(
-            "id, exercise_id, question, question_type, options, correct_answer, points, position, created_at"
+            `
+              id,
+              exercise_id,
+              question,
+              question_type,
+              options,
+              correct_answer,
+              points,
+              position,
+              created_at
+            `
           )
           .order("position"),
 
         supabase
           .from("notifications")
           .select(
-            "id, recipient_id, student_id, type, title, message, read, created_at"
+            `
+              id,
+              recipient_id,
+              student_id,
+              type,
+              title,
+              message,
+              read,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
           }),
       ]);
+
+      /*
+        Les cinq éléments principaux sont nécessaires.
+      */
 
       const requiredErrors = [
         teachersResult.error,
@@ -207,6 +374,11 @@ export default function AdminDashboard({ session, onLogout }) {
       if (requiredErrors.length > 0) {
         throw requiredErrors[0];
       }
+
+      /*
+        Les modules secondaires ne doivent pas bloquer
+        l'administration.
+      */
 
       if (parentsResult.error) {
         console.warn(
@@ -250,17 +422,36 @@ export default function AdminDashboard({ session, onLogout }) {
         );
       }
 
-      const teacherData = teachersResult.data || [];
-      const studentData = studentsResult.data || [];
-      const parentData = parentsResult.data || [];
+      const teacherData =
+        teachersResult.data || [];
+
+      const studentData =
+        studentsResult.data || [];
+
+      const parentData =
+        parentsResult.data || [];
+
       const parentStudentData =
         parentStudentsResult.data || [];
-      const schoolData = schoolsResult.data || [];
-      const classData = classesResult.data || [];
-      const subjectData = subjectsResult.data || [];
-      const documentData = documentsResult.data || [];
-      const exerciseData = exercisesResult.data || [];
-      const questionData = questionsResult.data || [];
+
+      const schoolData =
+        schoolsResult.data || [];
+
+      const classData =
+        classesResult.data || [];
+
+      const subjectData =
+        subjectsResult.data || [];
+
+      const documentData =
+        documentsResult.data || [];
+
+      const exerciseData =
+        exercisesResult.data || [];
+
+      const questionData =
+        questionsResult.data || [];
+
       const notificationData =
         notificationsResult.data || [];
 
@@ -285,7 +476,8 @@ export default function AdminDashboard({ session, onLogout }) {
         subjects: subjectData.length,
         documents: documentData.length,
         exercises: exerciseData.length,
-        notifications: notificationData.length,
+        notifications:
+          notificationData.length,
       });
     } catch (error) {
       console.error(
@@ -294,8 +486,9 @@ export default function AdminDashboard({ session, onLogout }) {
       );
 
       setMessage(
-        "Impossible de charger les données : " +
-          (error?.message || "Erreur inconnue")
+        "❌ Impossible de charger les données : " +
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setLoading(false);
@@ -319,7 +512,17 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("documents")
           .select(
-            "id, teacher_id, class_id, subject_id, title, description, document_type, file_url, created_at"
+            `
+              id,
+              teacher_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              document_type,
+              file_url,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
@@ -328,7 +531,19 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("exercises")
           .select(
-            "id, teacher_id, school_id, class_id, subject_id, title, description, instructions, duration_minutes, published, created_at"
+            `
+              id,
+              teacher_id,
+              school_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              instructions,
+              duration_minutes,
+              published,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
@@ -337,7 +552,16 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("attendance")
           .select(
-            "id, student_id, date, arrival_time, departure_time, status, recorded_by, created_at"
+            `
+              id,
+              student_id,
+              date,
+              arrival_time,
+              departure_time,
+              status,
+              recorded_by,
+              created_at
+            `
           )
           .order("date", {
             ascending: false,
@@ -346,7 +570,16 @@ export default function AdminDashboard({ session, onLogout }) {
         supabase
           .from("notifications")
           .select(
-            "id, recipient_id, student_id, type, title, message, read, created_at"
+            `
+              id,
+              recipient_id,
+              student_id,
+              type,
+              title,
+              message,
+              read,
+              created_at
+            `
           )
           .order("created_at", {
             ascending: false,
@@ -354,29 +587,29 @@ export default function AdminDashboard({ session, onLogout }) {
       ]);
 
       if (documentsResult.error) {
-        console.error(
-          "Documents :",
+        console.warn(
+          "Documents contrôle :",
           documentsResult.error.message
         );
       }
 
       if (exercisesResult.error) {
-        console.error(
-          "Exercices :",
+        console.warn(
+          "Exercices contrôle :",
           exercisesResult.error.message
         );
       }
 
       if (attendanceResult.error) {
-        console.error(
-          "Présences :",
+        console.warn(
+          "Présences contrôle :",
           attendanceResult.error.message
         );
       }
 
       if (notificationsResult.error) {
-        console.error(
-          "Notifications :",
+        console.warn(
+          "Notifications contrôle :",
           notificationsResult.error.message
         );
       }
@@ -401,6 +634,11 @@ export default function AdminDashboard({ session, onLogout }) {
         "Erreur contrôle total :",
         error
       );
+
+      setMessage(
+        "❌ Erreur du contrôle total : " +
+          (error?.message || "Erreur inconnue")
+      );
     } finally {
       setAdminControlLoading(false);
     }
@@ -414,14 +652,20 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
-    if (!teacherForm.full_name.trim()) {
+    const fullName =
+      teacherForm.full_name.trim();
+
+    const email =
+      teacherForm.email.trim();
+
+    if (!fullName) {
       setMessage(
         "Veuillez saisir le nom du professeur."
       );
       return;
     }
 
-    if (!teacherForm.email.trim()) {
+    if (!email) {
       setMessage(
         "Veuillez saisir l'adresse e-mail."
       );
@@ -441,10 +685,8 @@ export default function AdminDashboard({ session, onLogout }) {
           "create-user",
           {
             body: {
-              full_name:
-                teacherForm.full_name.trim(),
-              email:
-                teacherForm.email.trim(),
+              full_name: fullName,
+              email,
               phone:
                 teacherForm.phone.trim() ||
                 null,
@@ -455,7 +697,9 @@ export default function AdminDashboard({ session, onLogout }) {
           }
         );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (!data?.success) {
         throw new Error(
@@ -471,15 +715,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetTeacherForm();
       await loadData();
     } catch (error) {
-      console.error(
-        "Création professeur :",
+      showError(
+        "Erreur création professeur",
         error
-      );
-
-      setMessage(
-        "❌ Erreur création professeur : " +
-          (error?.message ||
-            "Erreur inconnue")
       );
     }
   }
@@ -488,22 +726,33 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name:
-            teacherForm.full_name.trim(),
-          phone:
-            teacherForm.phone.trim() ||
-            null,
-          school_id:
-            teacherForm.school_id ||
-            null,
-        })
-        .eq("id", editingTeacher.id);
+    if (!editingTeacher?.id) {
+      setMessage(
+        "Professeur introuvable."
+      );
+      return;
+    }
 
-      if (error) throw error;
+    try {
+      const values = {
+        full_name:
+          teacherForm.full_name.trim(),
+        phone:
+          teacherForm.phone.trim() ||
+          null,
+        school_id:
+          teacherForm.school_id || null,
+      };
+
+      const { error } =
+        await supabase
+          .from("profiles")
+          .update(values)
+          .eq("id", editingTeacher.id);
+
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         "✅ Professeur modifié avec succès."
@@ -512,11 +761,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetTeacherForm();
       await loadData();
     } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "❌ Erreur modification professeur : " +
-          error.message
+      showError(
+        "Erreur modification professeur",
+        error
       );
     }
   }
@@ -524,20 +771,26 @@ export default function AdminDashboard({ session, onLogout }) {
   async function toggleTeacher(teacher) {
     setMessage("");
 
+    /*
+      Si profiles.active n'existe pas,
+      Supabase renverra une erreur claire.
+    */
+
+    const newActive =
+      teacher.active === false;
+
     try {
-      const newActive =
-        teacher.active !== false
-          ? false
-          : true;
+      const { error } =
+        await supabase
+          .from("profiles")
+          .update({
+            active: newActive,
+          })
+          .eq("id", teacher.id);
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          active: newActive,
-        })
-        .eq("id", teacher.id);
-
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         newActive
@@ -547,11 +800,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "❌ Erreur statut professeur : " +
-          error.message
+      showError(
+        "Erreur statut professeur",
+        error
       );
     }
   }
@@ -589,24 +840,30 @@ export default function AdminDashboard({ session, onLogout }) {
       const values = {
         school_id:
           studentForm.school_id,
+
         class_id:
           studentForm.class_id || null,
+
         first_name:
           studentForm.first_name.trim(),
+
         last_name:
           studentForm.last_name.trim(),
+
         student_code:
           studentForm.student_code.trim() ||
           null,
+
         photo_url:
           studentForm.photo_url.trim() ||
           null,
+
         active:
           studentForm.active !== false,
       };
 
       let studentId =
-        editingStudent?.id;
+        editingStudent?.id || null;
 
       if (editingStudent) {
         const { error } =
@@ -618,7 +875,9 @@ export default function AdminDashboard({ session, onLogout }) {
               editingStudent.id
             );
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ Élève modifié avec succès."
@@ -630,10 +889,14 @@ export default function AdminDashboard({ session, onLogout }) {
         } = await supabase
           .from("students")
           .insert([values])
-          .select()
+          .select(
+            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
+          )
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         studentId = data.id;
 
@@ -642,15 +905,20 @@ export default function AdminDashboard({ session, onLogout }) {
         );
       }
 
+      /*
+        Mise à jour du lien parent/élève.
+      */
+
       if (studentId) {
-        const { error: deleteError } =
-          await supabase
-            .from("parent_students")
-            .delete()
-            .eq(
-              "student_id",
-              studentId
-            );
+        const {
+          error: deleteError,
+        } = await supabase
+          .from("parent_students")
+          .delete()
+          .eq(
+            "student_id",
+            studentId
+          );
 
         if (deleteError) {
           throw deleteError;
@@ -665,8 +933,10 @@ export default function AdminDashboard({ session, onLogout }) {
               {
                 parent_id:
                   studentForm.parent_id,
+
                 student_id:
                   studentId,
+
                 relationship:
                   studentForm.relationship ||
                   "Parent",
@@ -682,12 +952,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetStudentForm();
       await loadData();
     } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "❌ Erreur élève : " +
-          (error?.message ||
-            "Erreur inconnue")
+      showError(
+        "Erreur élève",
+        error
       );
     }
   }
@@ -695,18 +962,21 @@ export default function AdminDashboard({ session, onLogout }) {
   async function toggleStudent(student) {
     setMessage("");
 
+    const newActive =
+      student.active === false;
+
     try {
-      const newActive =
-        student.active === false;
+      const { error } =
+        await supabase
+          .from("students")
+          .update({
+            active: newActive,
+          })
+          .eq("id", student.id);
 
-      const { error } = await supabase
-        .from("students")
-        .update({
-          active: newActive,
-        })
-        .eq("id", student.id);
-
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         newActive
@@ -716,9 +986,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur statut élève : " +
-          error.message
+      showError(
+        "Erreur statut élève",
+        error
       );
     }
   }
@@ -729,7 +999,9 @@ export default function AdminDashboard({ session, onLogout }) {
         `Voulez-vous vraiment supprimer ${student.first_name} ${student.last_name} ?`
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const {
@@ -752,7 +1024,9 @@ export default function AdminDashboard({ session, onLogout }) {
           .delete()
           .eq("id", student.id);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         "✅ Élève supprimé avec succès."
@@ -760,11 +1034,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      console.error(error);
-
-      setMessage(
-        "❌ Erreur suppression élève : " +
-          error.message
+      showError(
+        "Erreur suppression élève",
+        error
       );
     }
   }
@@ -777,7 +1049,10 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
-    if (!schoolForm.name.trim()) {
+    const name =
+      schoolForm.name.trim();
+
+    if (!name) {
       setMessage(
         "Veuillez saisir le nom de l'école."
       );
@@ -786,16 +1061,20 @@ export default function AdminDashboard({ session, onLogout }) {
 
     try {
       const values = {
-        name: schoolForm.name.trim(),
+        name,
+
         address:
           schoolForm.address.trim() ||
           null,
+
         city:
           schoolForm.city.trim() ||
           null,
+
         phone:
           schoolForm.phone.trim() ||
           null,
+
         email:
           schoolForm.email.trim() ||
           null,
@@ -811,7 +1090,9 @@ export default function AdminDashboard({ session, onLogout }) {
               editingSchool.id
             );
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ École modifiée avec succès."
@@ -822,7 +1103,9 @@ export default function AdminDashboard({ session, onLogout }) {
             .from("schools")
             .insert([values]);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ École créée avec succès."
@@ -832,9 +1115,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetSchoolForm();
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur école : " +
-          error.message
+      showError(
+        "Erreur école",
+        error
       );
     }
   }
@@ -855,7 +1138,9 @@ export default function AdminDashboard({ session, onLogout }) {
           .delete()
           .eq("id", school.id);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         "✅ École supprimée."
@@ -863,9 +1148,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur suppression école : " +
-          error.message
+      showError(
+        "Erreur suppression école",
+        error
       );
     }
   }
@@ -896,7 +1181,10 @@ export default function AdminDashboard({ session, onLogout }) {
       const values = {
         school_id:
           classForm.school_id,
-        name: classForm.name.trim(),
+
+        name:
+          classForm.name.trim(),
+
         level:
           classForm.level.trim() ||
           null,
@@ -912,7 +1200,9 @@ export default function AdminDashboard({ session, onLogout }) {
               editingClass.id
             );
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ Classe modifiée avec succès."
@@ -923,7 +1213,9 @@ export default function AdminDashboard({ session, onLogout }) {
             .from("classes")
             .insert([values]);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ Classe créée avec succès."
@@ -933,9 +1225,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetClassForm();
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur classe : " +
-          error.message
+      showError(
+        "Erreur classe",
+        error
       );
     }
   }
@@ -959,7 +1251,9 @@ export default function AdminDashboard({ session, onLogout }) {
             classItem.id
           );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         "✅ Classe supprimée."
@@ -967,9 +1261,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur suppression classe : " +
-          error.message
+      showError(
+        "Erreur suppression classe",
+        error
       );
     }
   }
@@ -1003,7 +1297,9 @@ export default function AdminDashboard({ session, onLogout }) {
               editingSubject.id
             );
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ Matière modifiée avec succès."
@@ -1014,7 +1310,9 @@ export default function AdminDashboard({ session, onLogout }) {
             .from("subjects")
             .insert([{ name }]);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setMessage(
           "✅ Matière créée avec succès."
@@ -1024,9 +1322,9 @@ export default function AdminDashboard({ session, onLogout }) {
       resetSubjectForm();
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur matière : " +
-          error.message
+      showError(
+        "Erreur matière",
+        error
       );
     }
   }
@@ -1050,7 +1348,9 @@ export default function AdminDashboard({ session, onLogout }) {
             subject.id
           );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setMessage(
         "✅ Matière supprimée."
@@ -1058,15 +1358,15 @@ export default function AdminDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      setMessage(
-        "❌ Erreur suppression matière : " +
-          error.message
+      showError(
+        "Erreur suppression matière",
+        error
       );
     }
   }
 
   // =========================================================
-  // RESET
+  // RESET FORMS
   // =========================================================
 
   function resetTeacherForm() {
@@ -1141,9 +1441,12 @@ export default function AdminDashboard({ session, onLogout }) {
     setTeacherForm({
       full_name:
         teacher.full_name || "",
+
       email: "",
+
       phone:
         teacher.phone || "",
+
       school_id:
         teacher.school_id || "",
     });
@@ -1164,20 +1467,28 @@ export default function AdminDashboard({ session, onLogout }) {
     setStudentForm({
       school_id:
         student.school_id || "",
+
       class_id:
         student.class_id || "",
+
       first_name:
         student.first_name || "",
+
       last_name:
         student.last_name || "",
+
       student_code:
         student.student_code || "",
+
       photo_url:
         student.photo_url || "",
+
       active:
         student.active !== false,
+
       parent_id:
         relation?.parent_id || "",
+
       relationship:
         relation?.relationship ||
         "Parent",
@@ -1190,12 +1501,18 @@ export default function AdminDashboard({ session, onLogout }) {
     setEditingSchool(school);
 
     setSchoolForm({
-      name: school.name || "",
+      name:
+        school.name || "",
+
       address:
         school.address || "",
-      city: school.city || "",
+
+      city:
+        school.city || "",
+
       phone:
         school.phone || "",
+
       email:
         school.email || "",
     });
@@ -1209,8 +1526,10 @@ export default function AdminDashboard({ session, onLogout }) {
     setClassForm({
       school_id:
         classItem.school_id || "",
+
       name:
         classItem.name || "",
+
       level:
         classItem.level || "",
     });
@@ -1230,30 +1549,53 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
-  // HELPERS
+  // HELPERS DONNÉES
   // =========================================================
 
   function getSchoolName(schoolId) {
+    if (!schoolId) {
+      return "École inconnue";
+    }
+
     return (
       schools.find(
         (school) =>
-          school.id === schoolId
+          String(school.id) ===
+          String(schoolId)
       )?.name ||
       "École inconnue"
     );
   }
 
   function getClassName(classId) {
+    if (!classId) {
+      return "Classe inconnue";
+    }
+
     return (
       classes.find(
         (item) =>
-          item.id === classId
+          String(item.id) ===
+          String(classId)
       )?.name ||
       "Classe inconnue"
     );
   }
 
   function getSubjectName(subjectId) {
+    if (
+      subjectId === null ||
+      subjectId === undefined
+    ) {
+      return "Matière inconnue";
+    }
+
+    /*
+      subjects.id est BIGINT.
+      Les valeurs peuvent arriver sous forme
+      de number ou string selon le contexte.
+    */
+
     return (
       subjects.find(
         (item) =>
@@ -1265,10 +1607,15 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   function getTeacherName(teacherId) {
+    if (!teacherId) {
+      return "Professeur inconnu";
+    }
+
     return (
       teachers.find(
         (teacher) =>
-          teacher.id === teacherId
+          String(teacher.id) ===
+          String(teacherId)
       )?.full_name ||
       "Professeur inconnu"
     );
@@ -1278,7 +1625,8 @@ export default function AdminDashboard({ session, onLogout }) {
     const student =
       students.find(
         (item) =>
-          item.id === studentId
+          String(item.id) ===
+          String(studentId)
       );
 
     if (!student) {
@@ -1297,8 +1645,8 @@ export default function AdminDashboard({ session, onLogout }) {
     const relation =
       parentStudents.find(
         (item) =>
-          item.student_id ===
-          studentId
+          String(item.student_id) ===
+          String(studentId)
       );
 
     if (!relation) {
@@ -1308,8 +1656,8 @@ export default function AdminDashboard({ session, onLogout }) {
     return (
       parents.find(
         (parent) =>
-          parent.id ===
-          relation.parent_id
+          String(parent.id) ===
+          String(relation.parent_id)
       )?.full_name ||
       "Parent inconnu"
     );
@@ -1319,8 +1667,8 @@ export default function AdminDashboard({ session, onLogout }) {
     return (
       parentStudents.find(
         (item) =>
-          item.student_id ===
-          studentId
+          String(item.student_id) ===
+          String(studentId)
       )?.relationship ||
       "Non renseigné"
     );
@@ -1330,23 +1678,35 @@ export default function AdminDashboard({ session, onLogout }) {
     return (
       exercises.find(
         (exercise) =>
-          exercise.id === exerciseId
+          String(exercise.id) ===
+          String(exerciseId)
       )?.title ||
       "Exercice inconnu"
     );
   }
 
-  function formatDate(date) {
-    if (!date) return "Non renseignée";
+  // =========================================================
+  // CLASSES DISPONIBLES POUR L'ÉLÈVE
+  // =========================================================
 
-    try {
-      return new Date(
-        date
-      ).toLocaleString("fr-FR");
-    } catch {
-      return date;
+  const availableClasses = useMemo(() => {
+    if (!studentForm.school_id) {
+      return [];
     }
-  }
+
+    return classes.filter(
+      (item) =>
+        String(item.school_id) ===
+        String(studentForm.school_id)
+    );
+  }, [
+    classes,
+    studentForm.school_id,
+  ]);
+
+  // =========================================================
+  // NAVIGATION
+  // =========================================================
 
   function openSection(section) {
     setActiveSection(section);
@@ -1358,25 +1718,6 @@ export default function AdminDashboard({ session, onLogout }) {
       loadAdminControlData();
     }
   }
-
-  const availableClasses = useMemo(() => {
-    if (!studentForm.school_id) {
-      return [];
-    }
-
-    return classes.filter(
-      (item) =>
-        item.school_id ===
-        studentForm.school_id
-    );
-  }, [
-    classes,
-    studentForm.school_id,
-  ]);
-
-  // =========================================================
-  // NAVIGATION
-  // =========================================================
 
   function renderNavigation() {
     const items = [
@@ -1443,7 +1784,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 key={key}
               >
                 <strong>
-                  {stats[key]}
+                  {stats[key] || 0}
                 </strong>
 
                 <span>
@@ -1470,8 +1811,7 @@ export default function AdminDashboard({ session, onLogout }) {
             Il peut également consulter
             les documents, exercices,
             questions, présences et
-            notifications de
-            l'application.
+            notifications.
           </p>
         </div>
       </>
@@ -1500,12 +1840,14 @@ export default function AdminDashboard({ session, onLogout }) {
                 resetTeacherForm();
               } else {
                 setEditingTeacher(null);
+
                 setTeacherForm({
                   full_name: "",
                   email: "",
                   phone: "",
                   school_id: "",
                 });
+
                 setShowTeacherForm(true);
               }
             }}
@@ -1741,6 +2083,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 resetStudentForm();
               } else {
                 setEditingStudent(null);
+
                 setStudentForm({
                   school_id: "",
                   class_id: "",
@@ -1753,9 +2096,8 @@ export default function AdminDashboard({ session, onLogout }) {
                   relationship:
                     "Parent",
                 });
-                setShowStudentForm(
-                  true
-                );
+
+                setShowStudentForm(true);
               }
             }}
           >
@@ -2060,16 +2402,22 @@ export default function AdminDashboard({ session, onLogout }) {
                       style={{
                         width: 80,
                         height: 80,
-                        objectFit: "cover",
-                        borderRadius: "50%",
+                        objectFit:
+                          "cover",
+                        borderRadius:
+                          "50%",
                       }}
                     />
                   )}
 
                   <strong>
                     👨‍🎓{" "}
-                    {student.first_name}{" "}
-                    {student.last_name}
+                    {
+                      student.first_name
+                    }{" "}
+                    {
+                      student.last_name
+                    }
                   </strong>
 
                   <span>
@@ -2185,8 +2533,10 @@ export default function AdminDashboard({ session, onLogout }) {
                 const linkedStudents =
                   parentStudents.filter(
                     (item) =>
-                      item.parent_id ===
-                      parent.id
+                      String(
+                        item.parent_id
+                      ) ===
+                      String(parent.id)
                   );
 
                 return (
@@ -2220,9 +2570,7 @@ export default function AdminDashboard({ session, onLogout }) {
                     {linkedStudents.map(
                       (relation) => (
                         <span
-                          key={
-                            relation.student_id
-                          }
+                          key={`${relation.parent_id}-${relation.student_id}`}
                         >
                           •{" "}
                           {getStudentName(
@@ -2262,6 +2610,7 @@ export default function AdminDashboard({ session, onLogout }) {
                 resetSchoolForm();
               } else {
                 setEditingSchool(null);
+
                 setSchoolForm({
                   name: "",
                   address: "",
@@ -2269,6 +2618,7 @@ export default function AdminDashboard({ session, onLogout }) {
                   phone: "",
                   email: "",
                 });
+
                 setShowSchoolForm(true);
               }
             }}
@@ -2482,11 +2832,13 @@ export default function AdminDashboard({ session, onLogout }) {
                 resetClassForm();
               } else {
                 setEditingClass(null);
+
                 setClassForm({
                   school_id: "",
                   name: "",
                   level: "",
                 });
+
                 setShowClassForm(true);
               }
             }}
@@ -2672,9 +3024,11 @@ export default function AdminDashboard({ session, onLogout }) {
                 resetSubjectForm();
               } else {
                 setEditingSubject(null);
+
                 setSubjectForm({
                   name: "",
                 });
+
                 setShowSubjectForm(true);
               }
             }}
@@ -2904,8 +3258,12 @@ export default function AdminDashboard({ session, onLogout }) {
                 const exerciseQuestions =
                   questions.filter(
                     (question) =>
-                      question.exercise_id ===
-                      exercise.id
+                      String(
+                        question.exercise_id
+                      ) ===
+                      String(
+                        exercise.id
+                      )
                   );
 
                 return (
@@ -3073,9 +3431,12 @@ export default function AdminDashboard({ session, onLogout }) {
                   {question.options && (
                     <span>
                       Options :{" "}
-                      {JSON.stringify(
-                        question.options
-                      )}
+                      {typeof question.options ===
+                      "string"
+                        ? question.options
+                        : JSON.stringify(
+                            question.options
+                          )}
                     </span>
                   )}
                 </div>
@@ -3185,9 +3546,8 @@ export default function AdminDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Vue globale de
-            l'activité de
-            l'application.
+            Vue globale de l'activité
+            de l'application.
           </p>
 
           {adminControlLoading && (

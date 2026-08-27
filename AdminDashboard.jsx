@@ -1947,9 +1947,6 @@ if (teacherForm.password.length < 6) {
     />
   </>
 )}
-                />
-              </>
-            )}
 
             <label>
               École

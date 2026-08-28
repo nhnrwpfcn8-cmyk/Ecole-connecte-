@@ -1,7 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "./src/lib/supabase";
 
-export default function AdminDashboard({ session, onLogout }) {
+export default function AdminDashboard({
+  session,
+  onLogout,
+}) {
   // =========================================================
   // ÉTATS
   // =========================================================
@@ -29,37 +37,62 @@ export default function AdminDashboard({ session, onLogout }) {
   const [exercises, setExercises] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [teacherClasses, setTeacherClasses] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [activeSection, setActiveSection] = useState("dashboard");
 
-  const [showTeacherForm, setShowTeacherForm] = useState(false);
-  const [showStudentForm, setShowStudentForm] = useState(false);
-  const [showSchoolForm, setShowSchoolForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [adminDocuments, setAdminDocuments] = useState([]);
+  const [adminExercises, setAdminExercises] = useState([]);
+  const [adminAttendance, setAdminAttendance] = useState([]);
+  const [adminNotifications, setAdminNotifications] =
+    useState([]);
 
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editingSchool, setEditingSchool] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editingSubject, setEditingSubject] = useState(null);
+  const [adminControlLoading, setAdminControlLoading] =
+    useState(false);
 
-  // Attribution professeur
-  const [assignmentTeacher, setAssignmentTeacher] = useState(null);
-  const [selectedClasses, setSelectedClasses] = useState([]);
-  const [selectedSubjects, setSelectedSubjects] = useState([]);
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [adminControlTab, setAdminControlTab] =
+    useState("documents");
+
+  const [activeSection, setActiveSection] =
+    useState("dashboard");
+
+  const [showTeacherForm, setShowTeacherForm] =
+    useState(false);
+
+  const [showStudentForm, setShowStudentForm] =
+    useState(false);
+
+  const [showSchoolForm, setShowSchoolForm] =
+    useState(false);
+
+  const [showClassForm, setShowClassForm] =
+    useState(false);
+
+  const [showSubjectForm, setShowSubjectForm] =
+    useState(false);
+
+  const [editingTeacher, setEditingTeacher] =
+    useState(null);
+
+  const [editingStudent, setEditingStudent] =
+    useState(null);
+
+  const [editingSchool, setEditingSchool] =
+    useState(null);
+
+  const [editingClass, setEditingClass] =
+    useState(null);
+
+  const [editingSubject, setEditingSubject] =
+    useState(null);
 
   const [teacherForm, setTeacherForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    password: "",
-    school_id: "",
-  });
+  full_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  school_id: "",
+});
 
   const [studentForm, setStudentForm] = useState({
     school_id: "",
@@ -100,8 +133,44 @@ export default function AdminDashboard({ session, onLogout }) {
   }, []);
 
   // =========================================================
-  // HELPERS
+  // HELPERS SUPABASE
   // =========================================================
+
+  async function loadProfilesByRole(role) {
+    /*
+      On essaie d'abord avec active.
+      Si la colonne active n'existe pas dans profiles,
+      on recharge sans active.
+
+      Cela évite que le tableau de bord plante simplement
+      parce que profiles.active n'est pas présente.
+    */
+
+    let result = await supabase
+      .from("profiles")
+      .select(
+        "id, full_name, phone, role, school_id, active"
+      )
+      .eq("role", role)
+      .order("full_name");
+
+    if (
+      result.error &&
+      result.error.message
+        ?.toLowerCase()
+        .includes("active")
+    ) {
+      result = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, phone, role, school_id"
+        )
+        .eq("role", role)
+        .order("full_name");
+    }
+
+    return result;
+  }
 
   function showError(prefix, error) {
     console.error(prefix, error);
@@ -123,34 +192,8 @@ export default function AdminDashboard({ session, onLogout }) {
     }
   }
 
-  async function loadProfilesByRole(role) {
-    let result = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, phone, role, school_id, active"
-      )
-      .eq("role", role)
-      .order("full_name");
-
-    // Si la colonne active n'existe pas
-    if (
-      result.error &&
-      result.error.message?.toLowerCase().includes("active")
-    ) {
-      result = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, phone, role, school_id"
-        )
-        .eq("role", role)
-        .order("full_name");
-    }
-
-    return result;
-  }
-
   // =========================================================
-  // CHARGEMENT DES DONNÉES
+  // CHARGEMENT PRINCIPAL
   // =========================================================
 
   async function loadData() {
@@ -170,7 +213,6 @@ export default function AdminDashboard({ session, onLogout }) {
         exercisesResult,
         questionsResult,
         notificationsResult,
-        teacherClassesResult,
       ] = await Promise.all([
         loadProfilesByRole("teacher"),
 
@@ -316,23 +358,11 @@ export default function AdminDashboard({ session, onLogout }) {
           .order("created_at", {
             ascending: false,
           }),
-
-        supabase
-          .from("teacher_classes")
-          .select(
-            `
-              id,
-              teacher_id,
-              class_id,
-              subject_id,
-              created_at
-            `
-          ),
       ]);
 
-      // =======================================================
-      // ERREURS PRINCIPALES
-      // =======================================================
+      /*
+        Les cinq éléments principaux sont nécessaires.
+      */
 
       const requiredErrors = [
         teachersResult.error,
@@ -346,7 +376,11 @@ export default function AdminDashboard({ session, onLogout }) {
         throw requiredErrors[0];
       }
 
-      // Modules secondaires
+      /*
+        Les modules secondaires ne doivent pas bloquer
+        l'administration.
+      */
+
       if (parentsResult.error) {
         console.warn(
           "Parents :",
@@ -389,28 +423,38 @@ export default function AdminDashboard({ session, onLogout }) {
         );
       }
 
-      if (teacherClassesResult.error) {
-        console.warn(
-          "Affectations professeurs :",
-          teacherClassesResult.error.message
-        );
-      }
+      const teacherData =
+        teachersResult.data || [];
 
-      const teacherData = teachersResult.data || [];
-      const studentData = studentsResult.data || [];
-      const parentData = parentsResult.data || [];
+      const studentData =
+        studentsResult.data || [];
+
+      const parentData =
+        parentsResult.data || [];
+
       const parentStudentData =
         parentStudentsResult.data || [];
-      const schoolData = schoolsResult.data || [];
-      const classData = classesResult.data || [];
-      const subjectData = subjectsResult.data || [];
-      const documentData = documentsResult.data || [];
-      const exerciseData = exercisesResult.data || [];
-      const questionData = questionsResult.data || [];
+
+      const schoolData =
+        schoolsResult.data || [];
+
+      const classData =
+        classesResult.data || [];
+
+      const subjectData =
+        subjectsResult.data || [];
+
+      const documentData =
+        documentsResult.data || [];
+
+      const exerciseData =
+        exercisesResult.data || [];
+
+      const questionData =
+        questionsResult.data || [];
+
       const notificationData =
         notificationsResult.data || [];
-      const teacherClassData =
-        teacherClassesResult.data || [];
 
       setTeachers(teacherData);
       setStudents(studentData);
@@ -423,7 +467,6 @@ export default function AdminDashboard({ session, onLogout }) {
       setExercises(exerciseData);
       setQuestions(questionData);
       setNotifications(notificationData);
-      setTeacherClasses(teacherClassData);
 
       setStats({
         teachers: teacherData.length,
@@ -434,7 +477,8 @@ export default function AdminDashboard({ session, onLogout }) {
         subjects: subjectData.length,
         documents: documentData.length,
         exercises: exerciseData.length,
-        notifications: notificationData.length,
+        notifications:
+          notificationData.length,
       });
     } catch (error) {
       console.error(
@@ -444,7 +488,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
       setMessage(
         "❌ Impossible de charger les données : " +
-          (error?.message || "Erreur inconnue")
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setLoading(false);
@@ -452,289 +497,151 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
-  // HELPERS DONNÉES
+  // CONTRÔLE TOTAL
   // =========================================================
 
-  function getSchoolName(schoolId) {
-    if (!schoolId) return "École inconnue";
-
-    return (
-      schools.find(
-        (school) =>
-          String(school.id) === String(schoolId)
-      )?.name || "École inconnue"
-    );
-  }
-
-  function getClassName(classId) {
-    if (!classId) return "Classe inconnue";
-
-    return (
-      classes.find(
-        (item) =>
-          String(item.id) === String(classId)
-      )?.name || "Classe inconnue"
-    );
-  }
-
-  function getSubjectName(subjectId) {
-    if (
-      subjectId === null ||
-      subjectId === undefined
-    ) {
-      return "Matière inconnue";
-    }
-
-    return (
-      subjects.find(
-        (item) =>
-          String(item.id) === String(subjectId)
-      )?.name || "Matière inconnue"
-    );
-  }
-
-  function getTeacherName(teacherId) {
-    if (!teacherId) return "Professeur inconnu";
-
-    return (
-      teachers.find(
-        (teacher) =>
-          String(teacher.id) === String(teacherId)
-      )?.full_name || "Professeur inconnu"
-    );
-  }
-
-  function getStudentName(studentId) {
-    const student = students.find(
-      (item) =>
-        String(item.id) === String(studentId)
-    );
-
-    if (!student) return "Élève inconnu";
-
-    return (
-      `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim() || "Élève"
-    );
-  }
-
-  function getParentName(studentId) {
-    const relation = parentStudents.find(
-      (item) =>
-        String(item.student_id) ===
-        String(studentId)
-    );
-
-    if (!relation) {
-      return "Aucun parent associé";
-    }
-
-    return (
-      parents.find(
-        (parent) =>
-          String(parent.id) ===
-          String(relation.parent_id)
-      )?.full_name || "Parent inconnu"
-    );
-  }
-
-  function getParentRelationship(studentId) {
-    return (
-      parentStudents.find(
-        (item) =>
-          String(item.student_id) ===
-          String(studentId)
-      )?.relationship || "Non renseigné"
-    );
-  }
-
-  function getExerciseName(exerciseId) {
-    return (
-      exercises.find(
-        (exercise) =>
-          String(exercise.id) ===
-          String(exerciseId)
-      )?.title || "Exercice inconnu"
-    );
-  }
-
-  // =========================================================
-  // ATTRIBUTIONS PROFESSEURS
-  // =========================================================
-
-  function getTeacherAssignments(teacherId) {
-    return teacherClasses.filter(
-      (item) =>
-        String(item.teacher_id) ===
-        String(teacherId)
-    );
-  }
-
-  function getTeacherClassIds(teacherId) {
-    return [
-      ...new Set(
-        getTeacherAssignments(teacherId)
-          .map((item) => String(item.class_id))
-          .filter(Boolean)
-      ),
-    ];
-  }
-
-  function getTeacherSubjectIds(teacherId) {
-    return [
-      ...new Set(
-        getTeacherAssignments(teacherId)
-          .map((item) => String(item.subject_id))
-          .filter(Boolean)
-      ),
-    ];
-  }
-
-  function getTeacherClassNames(teacherId) {
-    const ids = getTeacherClassIds(teacherId);
-
-    return ids
-      .map((id) => getClassName(id))
-      .filter(
-        (name) => name !== "Classe inconnue"
-      );
-  }
-
-  function getTeacherSubjectNames(teacherId) {
-    const ids = getTeacherSubjectIds(teacherId);
-
-    return ids
-      .map((id) => getSubjectName(id))
-      .filter(
-        (name) => name !== "Matière inconnue"
-      );
-  }
-
-  function openTeacherAssignment(teacher) {
-    const assignments =
-      getTeacherAssignments(teacher.id);
-
-    setAssignmentTeacher(teacher);
-
-    setSelectedClasses(
-      [
-        ...new Set(
-          assignments
-            .map((item) => String(item.class_id))
-            .filter(Boolean)
-        ),
-      ]
-    );
-
-    setSelectedSubjects(
-      [
-        ...new Set(
-          assignments
-            .map((item) => String(item.subject_id))
-            .filter(Boolean)
-        ),
-      ]
-    );
-  }
-
-  function closeTeacherAssignment() {
-    setAssignmentTeacher(null);
-    setSelectedClasses([]);
-    setSelectedSubjects([]);
-  }
-
-  function toggleSelectedClass(classId) {
-    const id = String(classId);
-
-    setSelectedClasses((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
-
-  function toggleSelectedSubject(subjectId) {
-    const id = String(subjectId);
-
-    setSelectedSubjects((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
-
-  async function saveTeacherAssignments() {
-    if (!assignmentTeacher?.id) {
-      setMessage("❌ Professeur introuvable.");
-      return;
-    }
-
-    setAssignmentLoading(true);
-    setMessage("");
+  async function loadAdminControlData() {
+    setAdminControlLoading(true);
 
     try {
-      // Supprimer les anciennes affectations
-      const { error: deleteError } =
-        await supabase
-          .from("teacher_classes")
-          .delete()
-          .eq(
-            "teacher_id",
-            assignmentTeacher.id
-          );
+      const [
+        documentsResult,
+        exercisesResult,
+        attendanceResult,
+        notificationsResult,
+      ] = await Promise.all([
+        supabase
+          .from("documents")
+          .select(
+            `
+              id,
+              teacher_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              document_type,
+              file_url,
+              created_at
+            `
+          )
+          .order("created_at", {
+            ascending: false,
+          }),
 
-      if (deleteError) {
-        throw deleteError;
+        supabase
+          .from("exercises")
+          .select(
+            `
+              id,
+              teacher_id,
+              school_id,
+              class_id,
+              subject_id,
+              title,
+              description,
+              instructions,
+              duration_minutes,
+              published,
+              created_at
+            `
+          )
+          .order("created_at", {
+            ascending: false,
+          }),
+
+        supabase
+          .from("attendance")
+          .select(
+            `
+              id,
+              student_id,
+              date,
+              arrival_time,
+              departure_time,
+              status,
+              recorded_by,
+              created_at
+            `
+          )
+          .order("date", {
+            ascending: false,
+          }),
+
+        supabase
+          .from("notifications")
+          .select(
+            `
+              id,
+              recipient_id,
+              student_id,
+              type,
+              title,
+              message,
+              read,
+              created_at
+            `
+          )
+          .order("created_at", {
+            ascending: false,
+          }),
+      ]);
+
+      if (documentsResult.error) {
+        console.warn(
+          "Documents contrôle :",
+          documentsResult.error.message
+        );
       }
 
-      const rows = [];
-
-      for (const classId of selectedClasses) {
-        // Si aucune matière n'est sélectionnée,
-        // on crée l'affectation de classe seule.
-        if (selectedSubjects.length === 0) {
-          rows.push({
-            teacher_id: assignmentTeacher.id,
-            class_id: classId,
-            subject_id: null,
-          });
-        } else {
-          for (const subjectId of selectedSubjects) {
-            rows.push({
-              teacher_id: assignmentTeacher.id,
-              class_id: classId,
-              subject_id: Number(subjectId),
-            });
-          }
-        }
+      if (exercisesResult.error) {
+        console.warn(
+          "Exercices contrôle :",
+          exercisesResult.error.message
+        );
       }
 
-      if (rows.length > 0) {
-        const { error: insertError } =
-          await supabase
-            .from("teacher_classes")
-            .insert(rows);
-
-        if (insertError) {
-          throw insertError;
-        }
+      if (attendanceResult.error) {
+        console.warn(
+          "Présences contrôle :",
+          attendanceResult.error.message
+        );
       }
 
-      setMessage(
-        "✅ Classes et matières du professeur mises à jour."
+      if (notificationsResult.error) {
+        console.warn(
+          "Notifications contrôle :",
+          notificationsResult.error.message
+        );
+      }
+
+      setAdminDocuments(
+        documentsResult.data || []
       );
 
-      closeTeacherAssignment();
+      setAdminExercises(
+        exercisesResult.data || []
+      );
 
-      await loadData();
+      setAdminAttendance(
+        attendanceResult.data || []
+      );
+
+      setAdminNotifications(
+        notificationsResult.data || []
+      );
     } catch (error) {
-      showError(
-        "Erreur attribution professeur",
+      console.error(
+        "Erreur contrôle total :",
         error
       );
+
+      setMessage(
+        "❌ Erreur du contrôle total : " +
+          (error?.message || "Erreur inconnue")
+      );
     } finally {
-      setAssignmentLoading(false);
+      setAdminControlLoading(false);
     }
   }
 
@@ -751,10 +658,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
     const email =
       teacherForm.email.trim();
-
-    const password =
-      teacherForm.password;
-
+const password =
+  teacherForm.password;
     if (!fullName) {
       setMessage(
         "Veuillez saisir le nom du professeur."
@@ -768,21 +673,19 @@ export default function AdminDashboard({ session, onLogout }) {
       );
       return;
     }
+if (!teacherForm.password) {
+  setMessage(
+    "Veuillez saisir un mot de passe."
+  );
+  return;
+}
 
-    if (!password) {
-      setMessage(
-        "Veuillez saisir un mot de passe."
-      );
-      return;
-    }
-
-    if (password.length < 6) {
-      setMessage(
-        "Le mot de passe doit contenir au moins 6 caractères."
-      );
-      return;
-    }
-
+if (teacherForm.password.length < 6) {
+  setMessage(
+    "Le mot de passe doit contenir au moins 6 caractères."
+  );
+  return;
+}
     if (!teacherForm.school_id) {
       setMessage(
         "Veuillez sélectionner une école."
@@ -796,16 +699,17 @@ export default function AdminDashboard({ session, onLogout }) {
           "create-user",
           {
             body: {
-              full_name: fullName,
-              email,
-              phone:
-                teacherForm.phone.trim() ||
-                null,
-              password,
-              role: "teacher",
-              school_id:
-                teacherForm.school_id,
-            },
+  full_name: fullName,
+  email,
+  phone:
+    teacherForm.phone.trim() ||
+    null,
+  password:
+    teacherForm.password,
+  role: "teacher",
+  school_id:
+    teacherForm.school_id,
+},
           }
         );
 
@@ -860,10 +764,7 @@ export default function AdminDashboard({ session, onLogout }) {
         await supabase
           .from("profiles")
           .update(values)
-          .eq(
-            "id",
-            editingTeacher.id
-          );
+          .eq("id", editingTeacher.id);
 
       if (error) {
         throw error;
@@ -884,97 +785,42 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function toggleTeacher(teacher) {
-  setMessage("");
+    setMessage("");
 
-  const currentActive = teacher.is_active !== false;
-  const newActive = !currentActive;
+    /*
+      Si profiles.active n'existe pas,
+      Supabase renverra une erreur claire.
+    */
 
-  try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        active: newActive,
-        is_active: newActive,
-      })
-      .eq("id", teacher.id)
-      .eq("role", "teacher");
+    const newActive =
+      teacher.active === false;
 
-    if (error) {
-      throw error;
+    try {
+      const { error } =
+        await supabase
+          .from("profiles")
+          .update({
+            active: newActive,
+          })
+          .eq("id", teacher.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage(
+        newActive
+          ? "✅ Professeur réactivé."
+          : "🚫 Professeur désactivé."
+      );
+
+      await loadData();
+    } catch (error) {
+      showError(
+        "Erreur statut professeur",
+        error
+      );
     }
-
-    setMessage(
-      newActive
-        ? "✅ Professeur réactivé."
-        : "🚫 Professeur désactivé."
-    );
-
-    await loadData();
-  } catch (error) {
-    console.error(
-      "Erreur toggleTeacher :",
-      error
-    );
-
-    showError(
-      "Erreur statut professeur",
-      error
-    );
-  }
-}
-
-    
-
-    setMessage(
-      newActive
-        ? "✅ Professeur réactivé."
-        : "🚫 Professeur désactivé."
-    );
-
-    await loadData();
-  } catch (error) {
-    console.error(
-      "Erreur toggleTeacher:",
-      error
-    );
-
-    showError(
-      "Erreur statut professeur",
-      error
-    );
-  }
-}
-
-    setMessage(
-      newStatus
-        ? "✅ Professeur réactivé."
-        : "🚫 Professeur désactivé."
-    );
-
-    await loadData();
-  } catch (error) {
-    showError(
-      "Erreur statut professeur",
-      error
-    );
-  }
-}
- 
-  function startEditTeacher(teacher) {
-    setEditingTeacher(teacher);
-
-    setTeacherForm({
-      full_name:
-        teacher.full_name || "",
-      email: "",
-      phone:
-        teacher.phone || "",
-      password: "",
-      school_id:
-        teacher.school_id || "",
-    });
-
-    setShowTeacherForm(true);
   }
 
   // =========================================================
@@ -1010,18 +856,24 @@ export default function AdminDashboard({ session, onLogout }) {
       const values = {
         school_id:
           studentForm.school_id,
+
         class_id:
           studentForm.class_id || null,
+
         first_name:
           studentForm.first_name.trim(),
+
         last_name:
           studentForm.last_name.trim(),
+
         student_code:
           studentForm.student_code.trim() ||
           null,
+
         photo_url:
           studentForm.photo_url.trim() ||
           null,
+
         active:
           studentForm.active !== false,
       };
@@ -1069,6 +921,10 @@ export default function AdminDashboard({ session, onLogout }) {
         );
       }
 
+      /*
+        Mise à jour du lien parent/élève.
+      */
+
       if (studentId) {
         const {
           error: deleteError,
@@ -1093,8 +949,10 @@ export default function AdminDashboard({ session, onLogout }) {
               {
                 parent_id:
                   studentForm.parent_id,
+
                 student_id:
                   studentId,
+
                 relationship:
                   studentForm.relationship ||
                   "Parent",
@@ -1130,10 +988,7 @@ export default function AdminDashboard({ session, onLogout }) {
           .update({
             active: newActive,
           })
-          .eq(
-            "id",
-            student.id
-          );
+          .eq("id", student.id);
 
       if (error) {
         throw error;
@@ -1155,11 +1010,12 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function deleteStudent(student) {
-    if (
-      !window.confirm(
+    const confirmed =
+      window.confirm(
         `Voulez-vous vraiment supprimer ${student.first_name} ${student.last_name} ?`
-      )
-    ) {
+      );
+
+    if (!confirmed) {
       return;
     }
 
@@ -1201,41 +1057,6 @@ export default function AdminDashboard({ session, onLogout }) {
     }
   }
 
-  function startEditStudent(student) {
-    const relation =
-      parentStudents.find(
-        (item) =>
-          String(item.student_id) ===
-          String(student.id)
-      );
-
-    setEditingStudent(student);
-
-    setStudentForm({
-      school_id:
-        student.school_id || "",
-      class_id:
-        student.class_id || "",
-      first_name:
-        student.first_name || "",
-      last_name:
-        student.last_name || "",
-      student_code:
-        student.student_code || "",
-      photo_url:
-        student.photo_url || "",
-      active:
-        student.active !== false,
-      parent_id:
-        relation?.parent_id || "",
-      relationship:
-        relation?.relationship ||
-        "Parent",
-    });
-
-    setShowStudentForm(true);
-  }
-
   // =========================================================
   // ÉCOLES
   // =========================================================
@@ -1257,15 +1078,19 @@ export default function AdminDashboard({ session, onLogout }) {
     try {
       const values = {
         name,
+
         address:
           schoolForm.address.trim() ||
           null,
+
         city:
           schoolForm.city.trim() ||
           null,
+
         phone:
           schoolForm.phone.trim() ||
           null,
+
         email:
           schoolForm.email.trim() ||
           null,
@@ -1346,25 +1171,6 @@ export default function AdminDashboard({ session, onLogout }) {
     }
   }
 
-  function startEditSchool(school) {
-    setEditingSchool(school);
-
-    setSchoolForm({
-      name:
-        school.name || "",
-      address:
-        school.address || "",
-      city:
-        school.city || "",
-      phone:
-        school.phone || "",
-      email:
-        school.email || "",
-    });
-
-    setShowSchoolForm(true);
-  }
-
   // =========================================================
   // CLASSES
   // =========================================================
@@ -1391,8 +1197,10 @@ export default function AdminDashboard({ session, onLogout }) {
       const values = {
         school_id:
           classForm.school_id,
+
         name:
           classForm.name.trim(),
+
         level:
           classForm.level.trim() ||
           null,
@@ -1474,21 +1282,6 @@ export default function AdminDashboard({ session, onLogout }) {
         error
       );
     }
-  }
-
-  function startEditClass(classItem) {
-    setEditingClass(classItem);
-
-    setClassForm({
-      school_id:
-        classItem.school_id || "",
-      name:
-        classItem.name || "",
-      level:
-        classItem.level || "",
-    });
-
-    setShowClassForm(true);
   }
 
   // =========================================================
@@ -1588,29 +1381,18 @@ export default function AdminDashboard({ session, onLogout }) {
     }
   }
 
-  function startEditSubject(subject) {
-    setEditingSubject(subject);
-
-    setSubjectForm({
-      name:
-        subject.name || "",
-    });
-
-    setShowSubjectForm(true);
-  }
-
   // =========================================================
-  // RESET
+  // RESET FORMS
   // =========================================================
 
   function resetTeacherForm() {
-    setTeacherForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      password: "",
-      school_id: "",
-    });
+  setTeacherForm({
+    full_name: "",
+    email: "",
+    phone: "",
+    password: "",
+    school_id: "",
+  });
 
     setEditingTeacher(null);
     setShowTeacherForm(false);
@@ -1667,6 +1449,260 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
+  // EDIT
+  // =========================================================
+
+  function startEditTeacher(teacher) {
+    setEditingTeacher(teacher);
+
+    setTeacherForm({
+      full_name:
+        teacher.full_name || "",
+
+      email: "",
+
+      phone:
+        teacher.phone || "",
+
+      school_id:
+        teacher.school_id || "",
+    });
+
+    setShowTeacherForm(true);
+  }
+
+  function startEditStudent(student) {
+    const relation =
+      parentStudents.find(
+        (item) =>
+          item.student_id ===
+          student.id
+      );
+
+    setEditingStudent(student);
+
+    setStudentForm({
+      school_id:
+        student.school_id || "",
+
+      class_id:
+        student.class_id || "",
+
+      first_name:
+        student.first_name || "",
+
+      last_name:
+        student.last_name || "",
+
+      student_code:
+        student.student_code || "",
+
+      photo_url:
+        student.photo_url || "",
+
+      active:
+        student.active !== false,
+
+      parent_id:
+        relation?.parent_id || "",
+
+      relationship:
+        relation?.relationship ||
+        "Parent",
+    });
+
+    setShowStudentForm(true);
+  }
+
+  function startEditSchool(school) {
+    setEditingSchool(school);
+
+    setSchoolForm({
+      name:
+        school.name || "",
+
+      address:
+        school.address || "",
+
+      city:
+        school.city || "",
+
+      phone:
+        school.phone || "",
+
+      email:
+        school.email || "",
+    });
+
+    setShowSchoolForm(true);
+  }
+
+  function startEditClass(classItem) {
+    setEditingClass(classItem);
+
+    setClassForm({
+      school_id:
+        classItem.school_id || "",
+
+      name:
+        classItem.name || "",
+
+      level:
+        classItem.level || "",
+    });
+
+    setShowClassForm(true);
+  }
+
+  function startEditSubject(subject) {
+    setEditingSubject(subject);
+
+    setSubjectForm({
+      name:
+        subject.name || "",
+    });
+
+    setShowSubjectForm(true);
+  }
+
+  // =========================================================
+  // HELPERS DONNÉES
+  // =========================================================
+
+  function getSchoolName(schoolId) {
+    if (!schoolId) {
+      return "École inconnue";
+    }
+
+    return (
+      schools.find(
+        (school) =>
+          String(school.id) ===
+          String(schoolId)
+      )?.name ||
+      "École inconnue"
+    );
+  }
+
+  function getClassName(classId) {
+    if (!classId) {
+      return "Classe inconnue";
+    }
+
+    return (
+      classes.find(
+        (item) =>
+          String(item.id) ===
+          String(classId)
+      )?.name ||
+      "Classe inconnue"
+    );
+  }
+
+  function getSubjectName(subjectId) {
+    if (
+      subjectId === null ||
+      subjectId === undefined
+    ) {
+      return "Matière inconnue";
+    }
+
+    /*
+      subjects.id est BIGINT.
+      Les valeurs peuvent arriver sous forme
+      de number ou string selon le contexte.
+    */
+
+    return (
+      subjects.find(
+        (item) =>
+          String(item.id) ===
+          String(subjectId)
+      )?.name ||
+      "Matière inconnue"
+    );
+  }
+
+  function getTeacherName(teacherId) {
+    if (!teacherId) {
+      return "Professeur inconnu";
+    }
+
+    return (
+      teachers.find(
+        (teacher) =>
+          String(teacher.id) ===
+          String(teacherId)
+      )?.full_name ||
+      "Professeur inconnu"
+    );
+  }
+
+  function getStudentName(studentId) {
+    const student =
+      students.find(
+        (item) =>
+          String(item.id) ===
+          String(studentId)
+      );
+
+    if (!student) {
+      return "Élève inconnu";
+    }
+
+    return (
+      `${student.first_name || ""} ${
+        student.last_name || ""
+      }`.trim() ||
+      "Élève"
+    );
+  }
+
+  function getParentName(studentId) {
+    const relation =
+      parentStudents.find(
+        (item) =>
+          String(item.student_id) ===
+          String(studentId)
+      );
+
+    if (!relation) {
+      return "Aucun parent associé";
+    }
+
+    return (
+      parents.find(
+        (parent) =>
+          String(parent.id) ===
+          String(relation.parent_id)
+      )?.full_name ||
+      "Parent inconnu"
+    );
+  }
+
+  function getParentRelationship(studentId) {
+    return (
+      parentStudents.find(
+        (item) =>
+          String(item.student_id) ===
+          String(studentId)
+      )?.relationship ||
+      "Non renseigné"
+    );
+  }
+
+  function getExerciseName(exerciseId) {
+    return (
+      exercises.find(
+        (exercise) =>
+          String(exercise.id) ===
+          String(exerciseId)
+      )?.title ||
+      "Exercice inconnu"
+    );
+  }
+
+  // =========================================================
   // CLASSES DISPONIBLES POUR L'ÉLÈVE
   // =========================================================
 
@@ -1692,6 +1728,12 @@ export default function AdminDashboard({ session, onLogout }) {
   function openSection(section) {
     setActiveSection(section);
     setMessage("");
+
+    if (
+      section === "admin-control"
+    ) {
+      loadAdminControlData();
+    }
   }
 
   function renderNavigation() {
@@ -1707,6 +1749,7 @@ export default function AdminDashboard({ session, onLogout }) {
       ["exercises", "📝 Exercices"],
       ["questions", "❓ Questions"],
       ["notifications", "🔔 Notifications"],
+      ["admin-control", "👑 Contrôle total"],
     ];
 
     return (
@@ -1775,15 +1818,17 @@ export default function AdminDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            L'administrateur peut gérer
-            les écoles, classes, matières,
-            professeurs et élèves.
+            L'administrateur peut
+            gérer les écoles, classes,
+            matières, professeurs et
+            élèves.
           </p>
 
           <p>
-            Il peut également attribuer
-            les classes et matières aux
-            professeurs.
+            Il peut également consulter
+            les documents, exercices,
+            questions, présences et
+            notifications.
           </p>
         </div>
       </>
@@ -1817,7 +1862,6 @@ export default function AdminDashboard({ session, onLogout }) {
                   full_name: "",
                   email: "",
                   phone: "",
-                  password: "",
                   school_id: "",
                 });
 
@@ -1867,67 +1911,42 @@ export default function AdminDashboard({ session, onLogout }) {
             />
 
             {!editingTeacher && (
-              <>
-                <label>
-                  E-mail
-                </label>
+  <>
+    <label>
+      Adresse e-mail
+    </label>
 
-                <input
-                  type="email"
-                  placeholder="professeur@email.com"
-                  value={
-                    teacherForm.email
-                  }
-                  onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      email:
-                        e.target.value,
-                    })
-                  }
-                  required
-                />
+    <input
+      type="email"
+      placeholder="professeur@email.com"
+      value={teacherForm.email}
+      onChange={(e) =>
+        setTeacherForm({
+          ...teacherForm,
+          email: e.target.value,
+        })
+      }
+      required
+    />
 
-                <label>
-                  Mot de passe
-                </label>
+    <label>
+      Mot de passe
+    </label>
 
-                <input
-                  type="password"
-                  placeholder="Minimum 6 caractères"
-                  value={
-                    teacherForm.password
-                  }
-                  onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      password:
-                        e.target.value,
-                    })
-                  }
-                  required
-                />
-              </>
-            )}
-
-            <label>
-              Téléphone
-            </label>
-
-            <input
-              type="text"
-              placeholder="77 000 00 00"
-              value={
-                teacherForm.phone
-              }
-              onChange={(e) =>
-                setTeacherForm({
-                  ...teacherForm,
-                  phone:
-                    e.target.value,
-                })
-              }
-            />
+    <input
+      type="password"
+      placeholder="Minimum 6 caractères"
+      value={teacherForm.password}
+      onChange={(e) =>
+        setTeacherForm({
+          ...teacherForm,
+          password: e.target.value,
+        })
+      }
+      required
+    />
+  </>
+)}
 
             <label>
               École
@@ -1962,6 +1981,25 @@ export default function AdminDashboard({ session, onLogout }) {
               )}
             </select>
 
+            <label>
+              Téléphone
+            </label>
+
+            <input
+              type="text"
+              placeholder="77 000 00 00"
+              value={
+                teacherForm.phone
+              }
+              onChange={(e) =>
+                setTeacherForm({
+                  ...teacherForm,
+                  phone:
+                    e.target.value,
+                })
+              }
+            />
+
             <button type="submit">
               {editingTeacher
                 ? "💾 Enregistrer"
@@ -1980,260 +2018,76 @@ export default function AdminDashboard({ session, onLogout }) {
           </form>
         )}
 
-        {teachers.length === 0 ? (
-          <div className="notice">
-            Aucun professeur trouvé.
-          </div>
-        ) : (
-          <div className="grid">
-            {teachers.map(
-              (teacher) => {
-                const teacherClassNames =
-                  getTeacherClassNames(
-                    teacher.id
-                  );
+        <div className="grid">
+          {teachers.length === 0 ? (
+            <div className="notice">
+              Aucun professeur.
+            </div>
+          ) : (
+            teachers.map(
+              (teacher) => (
+                <div
+                  className="stat"
+                  key={teacher.id}
+                >
+                  <strong>
+                    👨‍🏫{" "}
+                    {teacher.full_name ||
+                      "Sans nom"}
+                  </strong>
 
-                const teacherSubjectNames =
-                  getTeacherSubjectNames(
-                    teacher.id
-                  );
+                  <span>
+                    🏫{" "}
+                    {getSchoolName(
+                      teacher.school_id
+                    )}
+                  </span>
 
-                return (
-                  <div
-                    className="stat"
-                    key={teacher.id}
+                  <span>
+                    📞{" "}
+                    {teacher.phone ||
+                      "Téléphone non renseigné"}
+                  </span>
+
+                  <span>
+                    Rôle : teacher
+                  </span>
+
+                  <span>
+                    Statut :{" "}
+                    {teacher.active ===
+                    false
+                      ? "🔴 Inactif"
+                      : "🟢 Actif"}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      startEditTeacher(
+                        teacher
+                      )
+                    }
                   >
-                    <strong>
-                      👨‍🏫{" "}
-                      {teacher.full_name ||
-                        "Professeur sans nom"}
-                    </strong>
+                    ✏️ Modifier
+                  </button>
 
-                    <span>
-                      🏫{" "}
-                      {getSchoolName(
-                        teacher.school_id
-                      )}
-                    </span>
-
-                    <span>
-                      📞{" "}
-                      {teacher.phone ||
-                        "Téléphone non renseigné"}
-                    </span>
-
-                    <span>
-                      📚 Classes :{" "}
-                      {teacherClassNames.length
-                        ? teacherClassNames.join(
-                            ", "
-                          )
-                        : "Aucune classe"}
-                    </span>
-
-                    <span>
-                      📖 Matières :{" "}
-                      {teacherSubjectNames.length
-                        ? teacherSubjectNames.join(
-                            ", "
-                          )
-                        : "Aucune matière"}
-                    </span>
-
-                    <span>
-  Statut :{" "}
-  {teacher.is_active === false
-    ? "🔴 Inactif"
-    : "🟢 Actif"}
-</span>
-
-                    <button
-                      onClick={() =>
-                        startEditTeacher(
-                          teacher
-                        )
-                      }
-                    >
-                      ✏️ Modifier
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        openTeacherAssignment(
-                          teacher
-                        )
-                      }
-                    >
-                      📚 Gérer classes &
-                      matières
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        toggleTeacher(
-                          teacher
-                        )
-                      }
-                    >
-                      teacher.is_active === false
-                        ? "✅ Réactiver"
-                        : "🚫 Désactiver"}
-                    </button>
-                  </div>
-                );
-              }
-            )}
-          </div>
-        )}
-
-        {assignmentTeacher && (
-          <div className="notice">
-            <h2>
-              📚 Affectation du professeur
-            </h2>
-
-            <h3>
-              👨‍🏫{" "}
-              {assignmentTeacher.full_name}
-            </h3>
-
-            <p>
-              Sélectionnez les classes
-              et les matières que ce
-              professeur pourra utiliser.
-            </p>
-
-            <hr />
-
-            <h3>
-              📚 Classes
-            </h3>
-
-            {classes.length === 0 ? (
-              <p>
-                Aucune classe disponible.
-              </p>
-            ) : (
-              <div className="grid">
-                {classes.map(
-                  (classItem) => {
-                    const selected =
-                      selectedClasses.includes(
-                        String(
-                          classItem.id
-                        )
-                      );
-
-                    return (
-                      <button
-                        type="button"
-                        key={
-                          classItem.id
-                        }
-                        onClick={() =>
-                          toggleSelectedClass(
-                            classItem.id
-                          )
-                        }
-                        style={{
-                          fontWeight:
-                            selected
-                              ? "bold"
-                              : "normal",
-                        }}
-                      >
-                        {selected
-                          ? "☑️"
-                          : "⬜"}{" "}
-                        {classItem.name}
-                        {classItem.level
-                          ? ` — ${classItem.level}`
-                          : ""}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            )}
-
-            <hr />
-
-            <h3>
-              📖 Matières
-            </h3>
-
-            {subjects.length === 0 ? (
-              <p>
-                Aucune matière disponible.
-              </p>
-            ) : (
-              <div className="grid">
-                {subjects.map(
-                  (subject) => {
-                    const selected =
-                      selectedSubjects.includes(
-                        String(
-                          subject.id
-                        )
-                      );
-
-                    return (
-                      <button
-                        type="button"
-                        key={
-                          subject.id
-                        }
-                        onClick={() =>
-                          toggleSelectedSubject(
-                            subject.id
-                          )
-                        }
-                        style={{
-                          fontWeight:
-                            selected
-                              ? "bold"
-                              : "normal",
-                        }}
-                      >
-                        {selected
-                          ? "☑️"
-                          : "⬜"}{" "}
-                        {subject.name}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            )}
-
-            <hr />
-
-            <button
-              onClick={
-                saveTeacherAssignments
-              }
-              disabled={
-                assignmentLoading
-              }
-            >
-              {assignmentLoading
-                ? "⏳ Enregistrement..."
-                : "💾 Enregistrer les affectations"}
-            </button>
-
-            <button
-              className="secondary"
-              onClick={
-                closeTeacherAssignment
-              }
-              disabled={
-                assignmentLoading
-              }
-            >
-              Annuler
-            </button>
-          </div>
-        )}
+                  <button
+                    onClick={() =>
+                      toggleTeacher(
+                        teacher
+                      )
+                    }
+                  >
+                    {teacher.active ===
+                    false
+                      ? "✅ Réactiver"
+                      : "🚫 Désactiver"}
+                  </button>
+                </div>
+              )
+            )
+          )}
+        </div>
       </>
     );
   }
@@ -2494,15 +2348,19 @@ export default function AdminDashboard({ session, onLogout }) {
               <option value="Parent">
                 Parent
               </option>
+
               <option value="Père">
                 Père
               </option>
+
               <option value="Mère">
                 Mère
               </option>
+
               <option value="Tuteur">
                 Tuteur
               </option>
+
               <option value="Tutrice">
                 Tutrice
               </option>
@@ -3707,6 +3565,382 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
+  // CONTRÔLE TOTAL
+  // =========================================================
+
+  function renderAdminControl() {
+    return (
+      <>
+        <div className="notice">
+          <h2>
+            👑 Contrôle total
+          </h2>
+
+          <p>
+            Vue globale de l'activité
+            de l'application.
+          </p>
+
+          {adminControlLoading && (
+            <p>
+              ⏳ Chargement...
+            </p>
+          )}
+        </div>
+
+        <div className="grid">
+          <button
+            onClick={() =>
+              setAdminControlTab(
+                "documents"
+              )
+            }
+          >
+            📄 Documents (
+            {adminDocuments.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab(
+                "exercises"
+              )
+            }
+          >
+            📝 Exercices (
+            {adminExercises.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab(
+                "attendance"
+              )
+            }
+          >
+            🕘 Présences (
+            {adminAttendance.length})
+          </button>
+
+          <button
+            onClick={() =>
+              setAdminControlTab(
+                "notifications"
+              )
+            }
+          >
+            🔔 Activités (
+            {adminNotifications.length})
+          </button>
+        </div>
+
+        {adminControlTab ===
+          "documents" && (
+          <div className="notice">
+            <h3>
+              📄 Tous les documents
+            </h3>
+
+            {adminDocuments.length ===
+            0 ? (
+              <p>
+                Aucun document trouvé.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminDocuments.map(
+                  (document) => (
+                    <div
+                      className="stat"
+                      key={
+                        document.id
+                      }
+                    >
+                      <strong>
+                        📄{" "}
+                        {
+                          document.title
+                        }
+                      </strong>
+
+                      <span>
+                        Type :{" "}
+                        {
+                          document.document_type
+                        }
+                      </span>
+
+                      <span>
+                        Professeur :{" "}
+                        {getTeacherName(
+                          document.teacher_id
+                        )}
+                      </span>
+
+                      <span>
+                        Classe :{" "}
+                        {getClassName(
+                          document.class_id
+                        )}
+                      </span>
+
+                      <span>
+                        Matière :{" "}
+                        {getSubjectName(
+                          document.subject_id
+                        )}
+                      </span>
+
+                      <span>
+                        📅{" "}
+                        {formatDate(
+                          document.created_at
+                        )}
+                      </span>
+
+                      {document.file_url && (
+                        <a
+                          href={
+                            document.file_url
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          📥 Ouvrir
+                        </a>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab ===
+          "exercises" && (
+          <div className="notice">
+            <h3>
+              📝 Tous les exercices
+            </h3>
+
+            {adminExercises.length ===
+            0 ? (
+              <p>
+                Aucun exercice trouvé.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminExercises.map(
+                  (exercise) => (
+                    <div
+                      className="stat"
+                      key={
+                        exercise.id
+                      }
+                    >
+                      <strong>
+                        📝{" "}
+                        {
+                          exercise.title
+                        }
+                      </strong>
+
+                      <span>
+                        Professeur :{" "}
+                        {getTeacherName(
+                          exercise.teacher_id
+                        )}
+                      </span>
+
+                      <span>
+                        École :{" "}
+                        {getSchoolName(
+                          exercise.school_id
+                        )}
+                      </span>
+
+                      <span>
+                        Classe :{" "}
+                        {getClassName(
+                          exercise.class_id
+                        )}
+                      </span>
+
+                      <span>
+                        Matière :{" "}
+                        {getSubjectName(
+                          exercise.subject_id
+                        )}
+                      </span>
+
+                      <span>
+                        Statut :{" "}
+                        {exercise.published
+                          ? "🟢 Publié"
+                          : "🟡 Brouillon"}
+                      </span>
+
+                      <span>
+                        📅{" "}
+                        {formatDate(
+                          exercise.created_at
+                        )}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab ===
+          "attendance" && (
+          <div className="notice">
+            <h3>
+              🕘 Toutes les présences
+            </h3>
+
+            {adminAttendance.length ===
+            0 ? (
+              <p>
+                Aucune présence enregistrée.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminAttendance.map(
+                  (attendance) => (
+                    <div
+                      className="stat"
+                      key={
+                        attendance.id
+                      }
+                    >
+                      <strong>
+                        👨‍🎓{" "}
+                        {getStudentName(
+                          attendance.student_id
+                        )}
+                      </strong>
+
+                      <span>
+                        📅 Date :{" "}
+                        {attendance.date ||
+                          "Non renseignée"}
+                      </span>
+
+                      <span>
+                        🟢 Arrivée :{" "}
+                        {attendance.arrival_time ||
+                          "Non renseignée"}
+                      </span>
+
+                      <span>
+                        🔴 Départ :{" "}
+                        {attendance.departure_time ||
+                          "Non renseigné"}
+                      </span>
+
+                      <span>
+                        Statut :{" "}
+                        {attendance.status ||
+                          "Non renseigné"}
+                      </span>
+
+                      <span>
+                        Enregistré par :{" "}
+                        {attendance.recorded_by ||
+                          "Non renseigné"}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {adminControlTab ===
+          "notifications" && (
+          <div className="notice">
+            <h3>
+              🔔 Activités /
+              notifications
+            </h3>
+
+            {adminNotifications.length ===
+            0 ? (
+              <p>
+                Aucune activité trouvée.
+              </p>
+            ) : (
+              <div className="grid">
+                {adminNotifications.map(
+                  (notification) => (
+                    <div
+                      className="stat"
+                      key={
+                        notification.id
+                      }
+                    >
+                      <strong>
+                        🔔{" "}
+                        {notification.title ||
+                          "Notification"}
+                      </strong>
+
+                      <span>
+                        Type :{" "}
+                        {notification.type ||
+                          "Non renseigné"}
+                      </span>
+
+                      <span>
+                        Destinataire :{" "}
+                        {notification.recipient_id ||
+                          "Non renseigné"}
+                      </span>
+
+                      {notification.student_id && (
+                        <span>
+                          Élève :{" "}
+                          {getStudentName(
+                            notification.student_id
+                          )}
+                        </span>
+                      )}
+
+                      <span>
+                        {notification.message ||
+                          "Aucun message"}
+                      </span>
+
+                      <span>
+                        État :{" "}
+                        {notification.read
+                          ? "🟢 Lu"
+                          : "🔴 Non lu"}
+                      </span>
+
+                      <span>
+                        📅{" "}
+                        {formatDate(
+                          notification.created_at
+                        )}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // =========================================================
   // SECTION ACTIVE
   // =========================================================
 
@@ -3741,6 +3975,9 @@ export default function AdminDashboard({ session, onLogout }) {
 
       case "notifications":
         return renderNotifications();
+
+      case "admin-control":
+        return renderAdminControl();
 
       default:
         return renderDashboard();

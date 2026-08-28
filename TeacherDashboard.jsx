@@ -4,8 +4,6 @@ import { supabase } from "./src/lib/supabase";
 export default function TeacherDashboard({ session, onLogout }) {
   const [documents, setDocuments] = useState([]);
   const [exercises, setExercises] = useState([]);
-  const [videos, setVideos] = useState([]);
-  const [links, setLinks] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [assignedClasses, setAssignedClasses] = useState([]);
@@ -25,9 +23,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [showEvaluationForm, setShowEvaluationForm] = useState(false);
 
-  // =========================================================
+  // =========================
   // DOCUMENT
-  // =========================================================
+  // =========================
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -37,9 +35,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // =========================================================
+  // =========================
   // EXERCICE
-  // =========================================================
+  // =========================
 
   const [exerciseTitle, setExerciseTitle] = useState("");
   const [exerciseDescription, setExerciseDescription] = useState("");
@@ -49,9 +47,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [exerciseSubjectId, setExerciseSubjectId] = useState("");
   const [publishingExercise, setPublishingExercise] = useState(false);
 
-  // =========================================================
+  // =========================
   // VIDEO
-  // =========================================================
+  // =========================
 
   const [videoTitle, setVideoTitle] = useState("");
   const [videoDescription, setVideoDescription] = useState("");
@@ -60,9 +58,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [videoSubjectId, setVideoSubjectId] = useState("");
   const [publishingVideo, setPublishingVideo] = useState(false);
 
-  // =========================================================
+  // =========================
   // LIEN
-  // =========================================================
+  // =========================
 
   const [linkTitle, setLinkTitle] = useState("");
   const [linkDescription, setLinkDescription] = useState("");
@@ -71,264 +69,229 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [linkSubjectId, setLinkSubjectId] = useState("");
   const [publishingLink, setPublishingLink] = useState(false);
 
-  // =========================================================
+  // =========================
   // EVALUATION
-  // =========================================================
+  // =========================
 
   const [evaluationStudentId, setEvaluationStudentId] = useState("");
   const [evaluationStars, setEvaluationStars] = useState(5);
   const [evaluationComment, setEvaluationComment] = useState("");
   const [evaluating, setEvaluating] = useState(false);
 
-  // =========================================================
-  // CHARGEMENT INITIAL
-  // =========================================================
+  // =========================
+  // CHARGEMENT
+  // =========================
 
   useEffect(() => {
     if (session?.user?.id) {
       loadData();
     }
-  }, [session?.user?.id]);
-
-  // =========================================================
-  // CHARGEMENT DES DONNÉES
-  // =========================================================
+  }, [session]);
 
   async function loadData() {
-    if (!session?.user?.id) return;
-
     setLoading(true);
     setMessage("");
 
     try {
-      // -------------------------------------------------------
-      // PROFIL DU PROFESSEUR
-      // -------------------------------------------------------
+      const teacherId = session.user.id;
+
+      // ==========================================
+      // 1. PROFIL DU PROFESSEUR
+      // ==========================================
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, role, school_id")
-        .eq("id", session.user.id)
+        .eq("id", teacherId)
         .single();
 
       if (profileError) {
         throw profileError;
       }
 
-      if (!profile) {
-        throw new Error("Profil professeur introuvable.");
-      }
-
-      if (profile.role !== "teacher") {
-        throw new Error(
-          "Ce compte n'est pas configuré comme professeur."
-        );
-      }
-
-      if (!profile.school_id) {
-        throw new Error(
-          "Votre profil n'est associé à aucune école."
-        );
-      }
-
       setSchoolId(profile.school_id);
       setTeacherName(profile.full_name || "");
 
-      // -------------------------------------------------------
-      // CHARGEMENT PRINCIPAL
-      // -------------------------------------------------------
+      // ==========================================
+      // 2. DOCUMENTS
+      // ==========================================
 
-      const [
-        documentsResult,
-        exercisesResult,
-        classesResult,
-        subjectsResult,
-        assignmentsResult,
-        videosResult,
-        linksResult,
-        studentsResult,
-        evaluationsResult,
-      ] = await Promise.all([
-        supabase
-          .from("documents")
-          .select("*")
-          .eq("teacher_id", session.user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("exercises")
-          .select("*")
-          .eq("teacher_id", session.user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("classes")
-          .select("*")
-          .eq("school_id", profile.school_id)
-          .order("name", { ascending: true }),
-
-        supabase
-          .from("subjects")
-          .select("*")
-          .order("name", { ascending: true }),
-
-        supabase
-          .from("teacher_classes")
-          .select("id, teacher_id, class_id, subject_id")
-          .eq("teacher_id", session.user.id),
-
-        supabase
-          .from("course_videos")
-          .select("*")
-          .eq("teacher_id", session.user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("course_links")
-          .select("*")
-          .eq("teacher_id", session.user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("students")
-          .select(
-            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active"
-          )
-          .eq("school_id", profile.school_id)
-          .order("first_name", { ascending: true }),
-
-        supabase
-          .from("student_evaluations")
-          .select("*")
-          .eq("teacher_id", session.user.id)
-          .order("created_at", { ascending: false }),
-      ]);
-
-      // -------------------------------------------------------
-      // VÉRIFICATION DES ERREURS
-      // -------------------------------------------------------
+      const documentsResult = await supabase
+        .from("documents")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (documentsResult.error) {
         throw documentsResult.error;
       }
 
+      setDocuments(documentsResult.data || []);
+
+      // ==========================================
+      // 3. EXERCICES
+      // ==========================================
+
+      const exercisesResult = await supabase
+        .from("exercises")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("created_at", {
+          ascending: false,
+        });
+
       if (exercisesResult.error) {
         throw exercisesResult.error;
       }
+
+      setExercises(exercisesResult.data || []);
+
+      // ==========================================
+      // 4. TOUTES LES CLASSES DE L'ÉCOLE
+      // ==========================================
+
+      const classesResult = await supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", profile.school_id)
+        .order("name");
 
       if (classesResult.error) {
         throw classesResult.error;
       }
 
+      const allClasses = classesResult.data || [];
+
+      setClasses(allClasses);
+
+      // ==========================================
+      // 5. TOUTES LES MATIÈRES
+      // ==========================================
+
+      const subjectsResult = await supabase
+        .from("subjects")
+        .select("*")
+        .order("name");
+
       if (subjectsResult.error) {
         throw subjectsResult.error;
       }
+
+      const allSubjects = subjectsResult.data || [];
+
+      setSubjects(allSubjects);
+
+      // ==========================================
+      // 6. ATTRIBUTIONS DU PROFESSEUR
+      // ==========================================
+
+      const assignmentsResult = await supabase
+        .from("teacher_classes")
+        .select("id, teacher_id, class_id, subject_id")
+        .eq("teacher_id", teacherId);
 
       if (assignmentsResult.error) {
         throw assignmentsResult.error;
       }
 
-      if (videosResult.error) {
-        throw videosResult.error;
-      }
-
-      if (linksResult.error) {
-        throw linksResult.error;
-      }
-
-      if (studentsResult.error) {
-        throw studentsResult.error;
-      }
-
-      if (evaluationsResult.error) {
-        throw evaluationsResult.error;
-      }
-
-      // -------------------------------------------------------
-      // STOCKAGE DES DONNÉES
-      // -------------------------------------------------------
-
-      const allClasses = classesResult.data || [];
-      const allSubjects = subjectsResult.data || [];
       const assignments = assignmentsResult.data || [];
 
-      setDocuments(documentsResult.data || []);
-      setExercises(exercisesResult.data || []);
-      setVideos(videosResult.data || []);
-      setLinks(linksResult.data || []);
-      setClasses(allClasses);
-      setSubjects(allSubjects);
-      setStudents(studentsResult.data || []);
-      setEvaluations(evaluationsResult.data || []);
-
-      // -------------------------------------------------------
-      // CLASSES ATTRIBUÉES
-      // -------------------------------------------------------
+      // ==========================================
+      // 7. CLASSES ATTRIBUÉES
+      // ==========================================
 
       const assignedClassIds = [
         ...new Set(
           assignments
             .map((item) => item.class_id)
             .filter(Boolean)
+            .map(String)
         ),
       ];
 
       const assignedClassList = allClasses.filter((item) =>
-        assignedClassIds.includes(item.id)
+        assignedClassIds.includes(String(item.id))
       );
 
       setAssignedClasses(assignedClassList);
 
-      // -------------------------------------------------------
-      // MATIÈRES ATTRIBUÉES
-      // -------------------------------------------------------
+      // ==========================================
+      // 8. MATIÈRES ATTRIBUÉES
+      // ==========================================
 
       const assignedSubjectIds = [
         ...new Set(
           assignments
             .map((item) => item.subject_id)
             .filter((id) => id !== null && id !== undefined)
-            .map(Number)
+            .map(String)
         ),
       ];
 
       const assignedSubjectList = allSubjects.filter((item) =>
-        assignedSubjectIds.includes(Number(item.id))
+        assignedSubjectIds.includes(String(item.id))
       );
 
       setAssignedSubjects(assignedSubjectList);
+
+      // ==========================================
+      // 9. ÉLÈVES DE L'ÉCOLE
+      // ==========================================
+
+      const studentsResult = await supabase
+        .from("students")
+        .select("*")
+        .eq("school_id", profile.school_id)
+        .order("last_name");
+
+      if (!studentsResult.error) {
+        setStudents(studentsResult.data || []);
+      } else {
+        console.error(
+          "Erreur chargement élèves :",
+          studentsResult.error
+        );
+        setStudents([]);
+      }
+
+      // ==========================================
+      // 10. ÉVALUATIONS
+      // ==========================================
+
+      const evaluationsResult = await supabase
+        .from("student_evaluations")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (!evaluationsResult.error) {
+        setEvaluations(evaluationsResult.data || []);
+      } else {
+        console.error(
+          "Erreur chargement évaluations :",
+          evaluationsResult.error
+        );
+        setEvaluations([]);
+      }
     } catch (error) {
-      console.error("Erreur TeacherDashboard :", error);
+      console.error("Erreur loadData :", error);
 
       setMessage(
-        "Erreur lors du chargement : " +
-          (error?.message || "Erreur inconnue.")
+        "Erreur de chargement : " +
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setLoading(false);
     }
   }
 
-  // =========================================================
-  // VÉRIFICATION ATTRIBUTION CLASSE / MATIÈRE
-  // =========================================================
-
-  function isAssignmentAllowed(selectedClassId, selectedSubjectId) {
-    if (!selectedClassId || !selectedSubjectId) {
-      return false;
-    }
-
-    return assignedClasses.some(
-      (item) => item.id === selectedClassId
-    ) &&
-      assignedSubjects.some(
-        (item) => Number(item.id) === Number(selectedSubjectId)
-      );
-  }
-
-  // =========================================================
+  // =========================
   // DOCUMENT
-  // =========================================================
+  // =========================
 
   async function publishDocument() {
     setMessage("");
@@ -348,33 +311,16 @@ export default function TeacherDashboard({ session, onLogout }) {
       return;
     }
 
-    if (!isAssignmentAllowed(classId, subjectId)) {
-      setMessage(
-        "Cette classe ou cette matière ne vous est pas attribuée."
-      );
-      return;
-    }
-
     if (!file) {
       setMessage("Veuillez choisir un fichier.");
-      return;
-    }
-
-    if (!schoolId) {
-      setMessage("Votre école est introuvable.");
       return;
     }
 
     setUploading(true);
 
     try {
-      const safeFileName = file.name.replace(
-        /[^a-zA-Z0-9._-]/g,
-        "_"
-      );
-
       const filePath =
-        `${session.user.id}/${Date.now()}-${safeFileName}`;
+        `${session.user.id}/${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("school-documents")
@@ -395,16 +341,16 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: classId,
           subject_id: Number(subjectId),
           title: title.trim(),
-          description: description.trim() || null,
+          description: description.trim(),
           document_type: documentType,
-          file_url: publicUrlData?.publicUrl || null,
+          file_url: publicUrlData.publicUrl,
         });
 
       if (insertError) {
         throw insertError;
       }
 
-      setMessage("📚 Document publié avec succès !");
+      setMessage("Document publié avec succès !");
 
       setTitle("");
       setDescription("");
@@ -412,24 +358,25 @@ export default function TeacherDashboard({ session, onLogout }) {
       setClassId("");
       setSubjectId("");
       setFile(null);
+
       setShowDocumentForm(false);
 
       await loadData();
     } catch (error) {
-      console.error("Erreur publication document :", error);
+      console.error(error);
 
       setMessage(
-        "Erreur document : " +
-          (error?.message || "Erreur inconnue.")
+        "Erreur : " +
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setUploading(false);
     }
   }
 
-  // =========================================================
+  // =========================
   // EXERCICE
-  // =========================================================
+  // =========================
 
   async function publishExercise() {
     setMessage("");
@@ -458,18 +405,6 @@ export default function TeacherDashboard({ session, onLogout }) {
       return;
     }
 
-    if (
-      !isAssignmentAllowed(
-        exerciseClassId,
-        exerciseSubjectId
-      )
-    ) {
-      setMessage(
-        "Cette classe ou cette matière ne vous est pas attribuée."
-      );
-      return;
-    }
-
     if (!instructions.trim()) {
       setMessage("Veuillez saisir les consignes.");
       return;
@@ -495,8 +430,7 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: exerciseClassId,
           subject_id: Number(exerciseSubjectId),
           title: exerciseTitle.trim(),
-          description:
-            exerciseDescription.trim() || null,
+          description: exerciseDescription.trim(),
           instructions: instructions.trim(),
           duration_minutes: durationNumber,
           published: true,
@@ -506,9 +440,7 @@ export default function TeacherDashboard({ session, onLogout }) {
         throw error;
       }
 
-      setMessage(
-        "📝 Exercice publié avec succès !"
-      );
+      setMessage("Exercice publié avec succès !");
 
       setExerciseTitle("");
       setExerciseDescription("");
@@ -516,30 +448,33 @@ export default function TeacherDashboard({ session, onLogout }) {
       setDuration("30");
       setExerciseClassId("");
       setExerciseSubjectId("");
+
       setShowExerciseForm(false);
 
       await loadData();
     } catch (error) {
-      console.error("Erreur exercice :", error);
+      console.error(error);
 
       setMessage(
-        "Erreur exercice : " +
-          (error?.message || "Erreur inconnue.")
+        "Erreur lors de la publication de l'exercice : " +
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setPublishingExercise(false);
     }
   }
 
-  // =========================================================
+  // =========================
   // VIDEO
-  // =========================================================
+  // =========================
 
   async function publishVideo() {
     setMessage("");
 
     if (!schoolId) {
-      setMessage("Votre école est introuvable.");
+      setMessage(
+        "Votre profil n'est associé à aucune école."
+      );
       return;
     }
 
@@ -567,18 +502,6 @@ export default function TeacherDashboard({ session, onLogout }) {
       return;
     }
 
-    if (
-      !isAssignmentAllowed(
-        videoClassId,
-        videoSubjectId
-      )
-    ) {
-      setMessage(
-        "Cette classe ou cette matière ne vous est pas attribuée."
-      );
-      return;
-    }
-
     setPublishingVideo(true);
 
     try {
@@ -590,8 +513,7 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: videoClassId,
           subject_id: Number(videoSubjectId),
           title: videoTitle.trim(),
-          description:
-            videoDescription.trim() || null,
+          description: videoDescription.trim(),
           video_url: videoUrl.trim(),
         });
 
@@ -608,30 +530,31 @@ export default function TeacherDashboard({ session, onLogout }) {
       setVideoUrl("");
       setVideoClassId("");
       setVideoSubjectId("");
-      setShowVideoForm(false);
 
-      await loadData();
+      setShowVideoForm(false);
     } catch (error) {
-      console.error("Erreur vidéo :", error);
+      console.error(error);
 
       setMessage(
         "Erreur vidéo : " +
-          (error?.message || "Erreur inconnue.")
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setPublishingVideo(false);
     }
   }
 
-  // =========================================================
+  // =========================
   // LIEN
-  // =========================================================
+  // =========================
 
   async function publishLink() {
     setMessage("");
 
     if (!schoolId) {
-      setMessage("Votre école est introuvable.");
+      setMessage(
+        "Votre profil n'est associé à aucune école."
+      );
       return;
     }
 
@@ -659,18 +582,6 @@ export default function TeacherDashboard({ session, onLogout }) {
       return;
     }
 
-    if (
-      !isAssignmentAllowed(
-        linkClassId,
-        linkSubjectId
-      )
-    ) {
-      setMessage(
-        "Cette classe ou cette matière ne vous est pas attribuée."
-      );
-      return;
-    }
-
     setPublishingLink(true);
 
     try {
@@ -682,8 +593,7 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: linkClassId,
           subject_id: Number(linkSubjectId),
           title: linkTitle.trim(),
-          description:
-            linkDescription.trim() || null,
+          description: linkDescription.trim(),
           url: linkUrl.trim(),
         });
 
@@ -700,24 +610,23 @@ export default function TeacherDashboard({ session, onLogout }) {
       setLinkUrl("");
       setLinkClassId("");
       setLinkSubjectId("");
-      setShowLinkForm(false);
 
-      await loadData();
+      setShowLinkForm(false);
     } catch (error) {
-      console.error("Erreur lien :", error);
+      console.error(error);
 
       setMessage(
         "Erreur lien : " +
-          (error?.message || "Erreur inconnue.")
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setPublishingLink(false);
     }
   }
 
-  // =========================================================
+  // =========================
   // EVALUATION
-  // =========================================================
+  // =========================
 
   async function evaluateStudent() {
     setMessage("");
@@ -727,9 +636,10 @@ export default function TeacherDashboard({ session, onLogout }) {
       return;
     }
 
-    const stars = Number(evaluationStars);
-
-    if (stars < 1 || stars > 5) {
+    if (
+      evaluationStars < 1 ||
+      evaluationStars > 5
+    ) {
       setMessage(
         "La note doit être comprise entre 1 et 5 étoiles."
       );
@@ -739,21 +649,12 @@ export default function TeacherDashboard({ session, onLogout }) {
     setEvaluating(true);
 
     try {
-      const selectedStudent = students.find(
-        (student) =>
-          student.id === evaluationStudentId
-      );
-
-      if (!selectedStudent) {
-        throw new Error("Élève introuvable.");
-      }
-
       const { error } = await supabase
         .from("student_evaluations")
         .insert({
           teacher_id: session.user.id,
           student_id: evaluationStudentId,
-          stars,
+          stars: Number(evaluationStars),
           comment:
             evaluationComment.trim() || null,
         });
@@ -769,36 +670,25 @@ export default function TeacherDashboard({ session, onLogout }) {
       setEvaluationStudentId("");
       setEvaluationStars(5);
       setEvaluationComment("");
+
       setShowEvaluationForm(false);
 
       await loadData();
     } catch (error) {
-      console.error("Erreur évaluation :", error);
+      console.error(error);
 
       setMessage(
         "Erreur évaluation : " +
-          (error?.message || "Erreur inconnue.")
+          (error?.message || "Erreur inconnue")
       );
     } finally {
       setEvaluating(false);
     }
   }
 
-  // =========================================================
-  // DECONNEXION
-  // =========================================================
-
-  async function handleLogout() {
-    try {
-      await onLogout?.();
-    } catch (error) {
-      console.error("Erreur déconnexion :", error);
-    }
-  }
-
-  // =========================================================
+  // =========================
   // CHARGEMENT
-  // =========================================================
+  // =========================
 
   if (loading) {
     return (
@@ -808,17 +698,15 @@ export default function TeacherDashboard({ session, onLogout }) {
     );
   }
 
-  // =========================================================
+  // =========================
   // AFFICHAGE
-  // =========================================================
+  // =========================
 
   return (
     <main className="page">
       <section className="card dashboard">
 
-        {/* ===================================================
-            HEADER
-        =================================================== */}
+        {/* HEADER */}
 
         <div className="top">
           <div>
@@ -832,34 +720,19 @@ export default function TeacherDashboard({ session, onLogout }) {
 
             <p>
               {teacherName ||
-                session?.user?.email ||
-                "Professeur"}
+                session.user.email}
             </p>
           </div>
 
           <button
             className="secondary"
-            onClick={handleLogout}
+            onClick={onLogout}
           >
             Déconnexion
           </button>
         </div>
 
-        {/* ===================================================
-            MESSAGE
-        =================================================== */}
-
-        {message && (
-          <div className="notice">
-            <p className="message">
-              {message}
-            </p>
-          </div>
-        )}
-
-        {/* ===================================================
-            MES ATTRIBUTIONS
-        =================================================== */}
+        {/* MES ATTRIBUTIONS */}
 
         <div className="notice">
           <h2>
@@ -867,11 +740,12 @@ export default function TeacherDashboard({ session, onLogout }) {
           </h2>
 
           <p>
-            Classes et matières qui me sont
-            attribuées.
+            Classes et matières qui me
+            sont attribuées.
           </p>
 
           <div className="grid">
+
             <div className="stat">
               <strong>
                 {assignedClasses.length}
@@ -891,6 +765,7 @@ export default function TeacherDashboard({ session, onLogout }) {
                 Matières enseignées
               </span>
             </div>
+
           </div>
 
           <h3>
@@ -899,8 +774,7 @@ export default function TeacherDashboard({ session, onLogout }) {
 
           {assignedClasses.length === 0 ? (
             <p>
-              Aucune classe attribuée pour le
-              moment.
+              Aucune classe attribuée pour le moment.
             </p>
           ) : (
             <p>
@@ -916,8 +790,7 @@ export default function TeacherDashboard({ session, onLogout }) {
 
           {assignedSubjects.length === 0 ? (
             <p>
-              Aucune matière attribuée pour le
-              moment.
+              Aucune matière attribuée pour le moment.
             </p>
           ) : (
             <p>
@@ -928,18 +801,17 @@ export default function TeacherDashboard({ session, onLogout }) {
           )}
         </div>
 
-        {/* ===================================================
-            STATISTIQUES
-        =================================================== */}
+        {/* STATISTIQUES */}
 
         <div className="grid">
+
           <div className="stat">
             <strong>
               {documents.length}
             </strong>
 
             <span>
-              Documents
+              Publications
             </span>
           </div>
 
@@ -955,72 +827,68 @@ export default function TeacherDashboard({ session, onLogout }) {
 
           <div className="stat">
             <strong>
-              {videos.length}
+              {assignedClasses.length}
             </strong>
 
             <span>
-              Vidéos
+              Classes
             </span>
           </div>
 
           <div className="stat">
             <strong>
-              {links.length}
+              {assignedSubjects.length}
             </strong>
 
             <span>
-              Liens
+              Matières
             </span>
           </div>
 
-          <div className="stat">
-            <strong>
-              {students.length}
-            </strong>
-
-            <span>
-              Élèves
-            </span>
-          </div>
-
-          <div className="stat">
-            <strong>
-              {evaluations.length}
-            </strong>
-
-            <span>
-              Évaluations
-            </span>
-          </div>
         </div>
 
-        {/* ===================================================
+        {/* MESSAGE */}
+
+        {message && (
+          <div className="notice">
+            <p className="message">
+              {message}
+            </p>
+          </div>
+        )}
+
+        {/* =========================
             VIDEOS
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             🎥 Vidéos de cours
           </h2>
 
           <p>
-            Publiez une vidéo de cours pour
-            vos élèves.
+            Publiez une vidéo de cours
+            pour vos élèves.
           </p>
 
           <button
             onClick={() =>
-              setShowVideoForm(!showVideoForm)
+              setShowVideoForm(
+                !showVideoForm
+              )
             }
           >
             {showVideoForm
               ? "Fermer"
               : "+ Publier une vidéo"}
           </button>
+
         </div>
 
         {showVideoForm && (
           <div className="card">
+
             <h2>
               🎥 Nouvelle vidéo
             </h2>
@@ -1032,21 +900,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={videoClassId}
               onChange={(e) =>
-                setVideoClassId(e.target.value)
+                setVideoClassId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une classe
               </option>
 
-              {assignedClasses.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1056,21 +928,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={videoSubjectId}
               onChange={(e) =>
-                setVideoSubjectId(e.target.value)
+                setVideoSubjectId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une matière
               </option>
 
-              {assignedSubjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1082,7 +958,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Ex : Les fractions"
               value={videoTitle}
               onChange={(e) =>
-                setVideoTitle(e.target.value)
+                setVideoTitle(
+                  e.target.value
+                )
               }
             />
 
@@ -1109,7 +987,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="https://youtube.com/..."
               value={videoUrl}
               onChange={(e) =>
-                setVideoUrl(e.target.value)
+                setVideoUrl(
+                  e.target.value
+                )
               }
             />
 
@@ -1121,36 +1001,42 @@ export default function TeacherDashboard({ session, onLogout }) {
                 ? "Publication..."
                 : "🎥 Publier la vidéo"}
             </button>
+
           </div>
         )}
 
-        {/* ===================================================
+        {/* =========================
             LIENS
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             🔗 Liens de cours
           </h2>
 
           <p>
-            Partagez des ressources externes
-            avec vos élèves.
+            Partagez des ressources
+            externes avec vos élèves.
           </p>
 
           <button
             onClick={() =>
-              setShowLinkForm(!showLinkForm)
+              setShowLinkForm(
+                !showLinkForm
+              )
             }
           >
             {showLinkForm
               ? "Fermer"
               : "+ Publier un lien"}
           </button>
+
         </div>
 
         {showLinkForm && (
           <div className="card">
+
             <h2>
               🔗 Nouveau lien
             </h2>
@@ -1162,21 +1048,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={linkClassId}
               onChange={(e) =>
-                setLinkClassId(e.target.value)
+                setLinkClassId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une classe
               </option>
 
-              {assignedClasses.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1186,21 +1076,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={linkSubjectId}
               onChange={(e) =>
-                setLinkSubjectId(e.target.value)
+                setLinkSubjectId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une matière
               </option>
 
-              {assignedSubjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1212,7 +1106,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Ex : Vidéo complémentaire"
               value={linkTitle}
               onChange={(e) =>
-                setLinkTitle(e.target.value)
+                setLinkTitle(
+                  e.target.value
+                )
               }
             />
 
@@ -1239,7 +1135,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="https://..."
               value={linkUrl}
               onChange={(e) =>
-                setLinkUrl(e.target.value)
+                setLinkUrl(
+                  e.target.value
+                )
               }
             />
 
@@ -1251,22 +1149,24 @@ export default function TeacherDashboard({ session, onLogout }) {
                 ? "Publication..."
                 : "🔗 Publier le lien"}
             </button>
+
           </div>
         )}
 
-        {/* ===================================================
+        {/* =========================
             DOCUMENTS
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             📚 Documents
           </h2>
 
           <p>
-            Partagez vos leçons, cours,
-            exercices et devoirs avec vos
-            élèves.
+            Partagez vos leçons,
+            cours, exercices et devoirs
+            avec vos élèves.
           </p>
 
           <button
@@ -1280,10 +1180,12 @@ export default function TeacherDashboard({ session, onLogout }) {
               ? "Fermer"
               : "+ Publier un document"}
           </button>
+
         </div>
 
         {showDocumentForm && (
           <div className="card">
+
             <h2>
               Nouveau document
             </h2>
@@ -1295,7 +1197,9 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={documentType}
               onChange={(e) =>
-                setDocumentType(e.target.value)
+                setDocumentType(
+                  e.target.value
+                )
               }
             >
               <option value="lecon">
@@ -1330,21 +1234,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={classId}
               onChange={(e) =>
-                setClassId(e.target.value)
+                setClassId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une classe
               </option>
 
-              {assignedClasses.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1354,21 +1262,25 @@ export default function TeacherDashboard({ session, onLogout }) {
             <select
               value={subjectId}
               onChange={(e) =>
-                setSubjectId(e.target.value)
+                setSubjectId(
+                  e.target.value
+                )
               }
             >
               <option value="">
                 Choisir une matière
               </option>
 
-              {assignedSubjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1380,7 +1292,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Ex : Les fractions"
               value={title}
               onChange={(e) =>
-                setTitle(e.target.value)
+                setTitle(
+                  e.target.value
+                )
               }
             />
 
@@ -1392,7 +1306,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Décrivez le contenu..."
               value={description}
               onChange={(e) =>
-                setDescription(e.target.value)
+                setDescription(
+                  e.target.value
+                )
               }
             />
 
@@ -1405,7 +1321,8 @@ export default function TeacherDashboard({ session, onLogout }) {
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               onChange={(e) =>
                 setFile(
-                  e.target.files?.[0] || null
+                  e.target.files?.[0] ||
+                    null
                 )
               }
             />
@@ -1418,21 +1335,23 @@ export default function TeacherDashboard({ session, onLogout }) {
                 ? "Publication en cours..."
                 : "📤 Publier"}
             </button>
+
           </div>
         )}
 
-        {/* ===================================================
+        {/* =========================
             EXERCICES
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             📝 Exercices
           </h2>
 
           <p>
-            Créez des exercices pour vos
-            classes.
+            Créez des exercices pour
+            vos classes.
           </p>
 
           <button
@@ -1446,10 +1365,12 @@ export default function TeacherDashboard({ session, onLogout }) {
               ? "Fermer"
               : "+ Nouvel exercice"}
           </button>
+
         </div>
 
         {showExerciseForm && (
           <div className="card">
+
             <h2>
               📝 Nouvel exercice
             </h2>
@@ -1470,14 +1391,16 @@ export default function TeacherDashboard({ session, onLogout }) {
                 Choisir une classe
               </option>
 
-              {assignedClasses.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedClasses.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1496,14 +1419,16 @@ export default function TeacherDashboard({ session, onLogout }) {
                 Choisir une matière
               </option>
 
-              {assignedSubjects.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.id}
-                >
-                  {item.name}
-                </option>
-              ))}
+              {assignedSubjects.map(
+                (item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1515,7 +1440,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Ex : Exercices sur les fractions"
               value={exerciseTitle}
               onChange={(e) =>
-                setExerciseTitle(e.target.value)
+                setExerciseTitle(
+                  e.target.value
+                )
               }
             />
 
@@ -1541,7 +1468,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               placeholder="Écrivez les consignes..."
               value={instructions}
               onChange={(e) =>
-                setInstructions(e.target.value)
+                setInstructions(
+                  e.target.value
+                )
               }
             />
 
@@ -1554,7 +1483,9 @@ export default function TeacherDashboard({ session, onLogout }) {
               min="1"
               value={duration}
               onChange={(e) =>
-                setDuration(e.target.value)
+                setDuration(
+                  e.target.value
+                )
               }
             />
 
@@ -1566,22 +1497,24 @@ export default function TeacherDashboard({ session, onLogout }) {
                 ? "Publication..."
                 : "🚀 Publier l'exercice"}
             </button>
+
           </div>
         )}
 
-        {/* ===================================================
+        {/* =========================
             EVALUATION
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             ⭐ Évaluation des élèves
           </h2>
 
           <p>
             Évaluez la conduite et
-            l'attitude de vos élèves sur
-            5 étoiles.
+            l'attitude de vos élèves
+            sur 5 étoiles.
           </p>
 
           <button
@@ -1595,10 +1528,12 @@ export default function TeacherDashboard({ session, onLogout }) {
               ? "Fermer"
               : "+ Évaluer un élève"}
           </button>
+
         </div>
 
         {showEvaluationForm && (
           <div className="card">
+
             <h2>
               ⭐ Nouvelle évaluation
             </h2>
@@ -1619,15 +1554,21 @@ export default function TeacherDashboard({ session, onLogout }) {
                 Choisir un élève
               </option>
 
-              {students.map((student) => (
-                <option
-                  key={student.id}
-                  value={student.id}
-                >
-                  {student.first_name || ""}{" "}
-                  {student.last_name || ""}
-                </option>
-              ))}
+              {students.map(
+                (student) => (
+                  <option
+                    key={student.id}
+                    value={student.id}
+                  >
+                    {student.first_name &&
+                    student.last_name
+                      ? `${student.first_name} ${student.last_name}`
+                      : student.full_name ||
+                        student.name ||
+                        "Élève"}
+                  </option>
+                )
+              )}
             </select>
 
             <label>
@@ -1685,50 +1626,56 @@ export default function TeacherDashboard({ session, onLogout }) {
                 ? "Enregistrement..."
                 : "⭐ Enregistrer l'évaluation"}
             </button>
+
           </div>
         )}
 
-        {/* ===================================================
+        {/* =========================
             MES EXERCICES
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             📋 Mes exercices
           </h2>
 
           {exercises.length === 0 ? (
             <p>
-              Vous n'avez encore créé aucun
-              exercice.
+              Vous n'avez encore créé
+              aucun exercice.
             </p>
           ) : (
-            exercises.map((exercise) => (
-              <div
-                key={exercise.id}
-                className="stat"
-              >
-                <strong>
-                  {exercise.title}
-                </strong>
+            exercises.map(
+              (exercise) => (
+                <div
+                  key={exercise.id}
+                  className="stat"
+                >
+                  <strong>
+                    {exercise.title}
+                  </strong>
 
-                <span>
-                  {exercise.duration_minutes || 0}
-                  {" min • "}
-                  {exercise.published
-                    ? "Publié"
-                    : "Brouillon"}
-                </span>
-              </div>
-            ))
+                  <span>
+                    {exercise.duration_minutes}
+                    {" min • "}
+                    {exercise.published
+                      ? "Publié"
+                      : "Brouillon"}
+                  </span>
+                </div>
+              )
+            )
           )}
+
         </div>
 
-        {/* ===================================================
+        {/* =========================
             MES PUBLICATIONS
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             📚 Mes publications
           </h2>
@@ -1739,92 +1686,32 @@ export default function TeacherDashboard({ session, onLogout }) {
               aucun document.
             </p>
           ) : (
-            documents.map((document) => (
-              <div
-                key={document.id}
-                className="stat"
-              >
-                <strong>
-                  {document.title}
-                </strong>
+            documents.map(
+              (document) => (
+                <div
+                  key={document.id}
+                  className="stat"
+                >
+                  <strong>
+                    {document.title}
+                  </strong>
 
-                <span>
-                  {document.document_type}
-                </span>
-              </div>
-            ))
+                  <span>
+                    {document.document_type}
+                  </span>
+                </div>
+              )
+            )
           )}
+
         </div>
 
-        {/* ===================================================
-            MES VIDEOS
-        =================================================== */}
-
-        <div className="notice">
-          <h2>
-            🎥 Mes vidéos
-          </h2>
-
-          {videos.length === 0 ? (
-            <p>
-              Vous n'avez encore publié
-              aucune vidéo.
-            </p>
-          ) : (
-            videos.map((video) => (
-              <div
-                key={video.id}
-                className="stat"
-              >
-                <strong>
-                  {video.title}
-                </strong>
-
-                <span>
-                  {video.video_url}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* ===================================================
-            MES LIENS
-        =================================================== */}
-
-        <div className="notice">
-          <h2>
-            🔗 Mes liens
-          </h2>
-
-          {links.length === 0 ? (
-            <p>
-              Vous n'avez encore publié
-              aucun lien.
-            </p>
-          ) : (
-            links.map((link) => (
-              <div
-                key={link.id}
-                className="stat"
-              >
-                <strong>
-                  {link.title}
-                </strong>
-
-                <span>
-                  {link.url}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* ===================================================
+        {/* =========================
             MES EVALUATIONS
-        =================================================== */}
+        ========================= */}
 
         <div className="notice">
+
           <h2>
             ⭐ Mes évaluations
           </h2>
@@ -1834,32 +1721,35 @@ export default function TeacherDashboard({ session, onLogout }) {
               Aucune évaluation enregistrée.
             </p>
           ) : (
-            evaluations.map((evaluation) => (
-              <div
-                key={evaluation.id}
-                className="stat"
-              >
-                <strong>
-                  {"⭐".repeat(
-                    Math.max(
-                      0,
-                      Math.min(
-                        5,
-                        Number(
-                          evaluation.stars || 0
+            evaluations.map(
+              (evaluation) => (
+                <div
+                  key={evaluation.id}
+                  className="stat"
+                >
+                  <strong>
+                    {"⭐".repeat(
+                      Math.max(
+                        0,
+                        Math.min(
+                          5,
+                          Number(
+                            evaluation.stars || 0
+                          )
                         )
                       )
-                    )
-                  )}
-                </strong>
+                    )}
+                  </strong>
 
-                <span>
-                  {evaluation.comment ||
-                    "Aucun commentaire"}
-                </span>
-              </div>
-            ))
+                  <span>
+                    {evaluation.comment ||
+                      "Aucun commentaire"}
+                  </span>
+                </div>
+              )
+            )
           )}
+
         </div>
 
       </section>

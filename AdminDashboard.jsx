@@ -66,6 +66,7 @@ export default function AdminDashboard({ session, onLogout }) {
     class_id: "",
     first_name: "",
     last_name: "",
+    student_code: "",
     photo_url: "",
     active: true,
     parent_id: "",
@@ -120,55 +121,6 @@ export default function AdminDashboard({ session, onLogout }) {
     } catch {
       return String(date);
     }
-  }
-
-  // =========================================================
-  // GÉNÉRATION AUTOMATIQUE DU CODE ÉLÈVE
-  // =========================================================
-
-  function normalizeStudentName(value) {
-    return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .toUpperCase();
-  }
-
-  function generateStudentCode(firstName, lastName) {
-    const firstNamePart =
-      normalizeStudentName(firstName);
-
-    const lastNamePart =
-      normalizeStudentName(lastName);
-
-    const base =
-      `${firstNamePart}-${lastNamePart}`
-        .replace(/^-+|-+$/g, "");
-
-    // Petit identifiant aléatoire permettant
-    // d'éviter les doublons.
-    let randomPart = "";
-
-    if (
-      typeof crypto !== "undefined" &&
-      typeof crypto.randomUUID === "function"
-    ) {
-      randomPart = crypto
-        .randomUUID()
-        .replace(/-/g, "")
-        .substring(0, 4)
-        .toUpperCase();
-    } else {
-      randomPart = Math.random()
-        .toString(36)
-        .substring(2, 6)
-        .toUpperCase();
-    }
-
-    return `${base}-${randomPart}`;
   }
 
   async function loadProfilesByRole(role) {
@@ -722,6 +674,7 @@ export default function AdminDashboard({ session, onLogout }) {
     setMessage("");
 
     try {
+      // Supprimer les anciennes affectations
       const { error: deleteError } =
         await supabase
           .from("teacher_classes")
@@ -738,6 +691,8 @@ export default function AdminDashboard({ session, onLogout }) {
       const rows = [];
 
       for (const classId of selectedClasses) {
+        // Si aucune matière n'est sélectionnée,
+        // on crée l'affectation de classe seule.
         if (selectedSubjects.length === 0) {
           rows.push({
             teacher_id: assignmentTeacher.id,
@@ -1009,70 +964,24 @@ export default function AdminDashboard({ session, onLogout }) {
     }
 
     try {
-      let values;
-
-      // -------------------------------------------------------
-      // MODIFICATION
-      // -------------------------------------------------------
-      // Lorsqu'on modifie un élève, on conserve son code
-      // existant afin qu'il ne change pas à chaque modification.
-      // -------------------------------------------------------
-
-      if (editingStudent) {
-        values = {
-          school_id:
-            studentForm.school_id,
-          class_id:
-            studentForm.class_id || null,
-          first_name:
-            studentForm.first_name.trim(),
-          last_name:
-            studentForm.last_name.trim(),
-          student_code:
-            editingStudent.student_code ||
-            generateStudentCode(
-              studentForm.first_name,
-              studentForm.last_name
-            ),
-          photo_url:
-            studentForm.photo_url.trim() ||
-            null,
-          active:
-            studentForm.active !== false,
-        };
-      }
-
-      // -------------------------------------------------------
-      // CRÉATION
-      // -------------------------------------------------------
-      // Le student_code est maintenant généré automatiquement.
-      // -------------------------------------------------------
-
-      else {
-        const generatedStudentCode =
-          generateStudentCode(
-            studentForm.first_name,
-            studentForm.last_name
-          );
-
-        values = {
-          school_id:
-            studentForm.school_id,
-          class_id:
-            studentForm.class_id || null,
-          first_name:
-            studentForm.first_name.trim(),
-          last_name:
-            studentForm.last_name.trim(),
-          student_code:
-            generatedStudentCode,
-          photo_url:
-            studentForm.photo_url.trim() ||
-            null,
-          active:
-            studentForm.active !== false,
-        };
-      }
+      const values = {
+        school_id:
+          studentForm.school_id,
+        class_id:
+          studentForm.class_id || null,
+        first_name:
+          studentForm.first_name.trim(),
+        last_name:
+          studentForm.last_name.trim(),
+        student_code:
+          studentForm.student_code.trim() ||
+          null,
+        photo_url:
+          studentForm.photo_url.trim() ||
+          null,
+        active:
+          studentForm.active !== false,
+      };
 
       let studentId =
         editingStudent?.id || null;
@@ -1092,9 +1001,7 @@ export default function AdminDashboard({ session, onLogout }) {
         }
 
         setMessage(
-          `✅ Élève modifié avec succès. Code : ${
-            values.student_code
-          }`
+          "✅ Élève modifié avec succès."
         );
       } else {
         const {
@@ -1115,15 +1022,9 @@ export default function AdminDashboard({ session, onLogout }) {
         studentId = data.id;
 
         setMessage(
-          `✅ Élève créé avec succès. Code : ${
-            data.student_code
-          }`
+          "✅ Élève créé avec succès."
         );
       }
-
-      // -------------------------------------------------------
-      // PARENT
-      // -------------------------------------------------------
 
       if (studentId) {
         const {
@@ -1276,6 +1177,8 @@ export default function AdminDashboard({ session, onLogout }) {
         student.first_name || "",
       last_name:
         student.last_name || "",
+      student_code:
+        student.student_code || "",
       photo_url:
         student.photo_url || "",
       active:
@@ -1676,6 +1579,7 @@ export default function AdminDashboard({ session, onLogout }) {
       class_id: "",
       first_name: "",
       last_name: "",
+      student_code: "",
       photo_url: "",
       active: true,
       parent_id: "",
@@ -2321,6 +2225,7 @@ export default function AdminDashboard({ session, onLogout }) {
                   class_id: "",
                   first_name: "",
                   last_name: "",
+                  student_code: "",
                   photo_url: "",
                   active: true,
                   parent_id: "",
@@ -2458,37 +2363,24 @@ export default function AdminDashboard({ session, onLogout }) {
               required
             />
 
-            {/* =================================================
-                CODE ÉLÈVE
-                ================================================= */}
+            <label>
+              Code / matricule
+            </label>
 
-            <div
-              className="notice"
-              style={{
-                marginTop: "10px",
-                marginBottom: "10px",
-              }}
-            >
-              <strong>
-                🆔 Code élève
-              </strong>
-
-              <p>
-                Le code sera généré
-                automatiquement à partir
-                du prénom et du nom lors
-                de la création de l'élève.
-              </p>
-
-              {editingStudent?.student_code && (
-                <p>
-                  Code actuel :{" "}
-                  <strong>
-                    {editingStudent.student_code}
-                  </strong>
-                </p>
-              )}
-            </div>
+            <input
+              type="text"
+              placeholder="EC-2026-001"
+              value={
+                studentForm.student_code
+              }
+              onChange={(e) =>
+                setStudentForm({
+                  ...studentForm,
+                  student_code:
+                    e.target.value,
+                })
+              }
+            />
 
             <label>
               URL de la photo
@@ -2561,19 +2453,15 @@ export default function AdminDashboard({ session, onLogout }) {
               <option value="Parent">
                 Parent
               </option>
-
               <option value="Père">
                 Père
               </option>
-
               <option value="Mère">
                 Mère
               </option>
-
               <option value="Tuteur">
                 Tuteur
               </option>
-
               <option value="Tutrice">
                 Tutrice
               </option>

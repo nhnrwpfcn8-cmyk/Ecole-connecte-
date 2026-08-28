@@ -886,21 +886,63 @@ export default function AdminDashboard({ session, onLogout }) {
   async function toggleTeacher(teacher) {
   setMessage("");
 
-  const newStatus =
-    teacher.is_active === false;
+  const currentActive = teacher.is_active !== false;
+  const newActive = !currentActive;
 
   try {
-    const { error } =
-      await supabase
-        .from("profiles")
-        .update({
-          is_active: newStatus,
-        })
-        .eq("id", teacher.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        active: newActive,
+        is_active: newActive,
+      })
+      .eq("id", teacher.id)
+      .eq("role", "teacher");
 
     if (error) {
       throw error;
     }
+
+    setMessage(
+      newActive
+        ? "✅ Professeur réactivé."
+        : "🚫 Professeur désactivé."
+    );
+
+    await loadData();
+
+  } catch (error) {
+    console.error(
+      "Erreur toggleTeacher :",
+      error
+    );
+
+    showError(
+      "Erreur statut professeur",
+      error
+    );
+  }
+}
+
+    setMessage(
+      newActive
+        ? "✅ Professeur réactivé."
+        : "🚫 Professeur désactivé."
+    );
+
+    await loadData();
+  } catch (error) {
+    console.error(
+      "Erreur toggleTeacher:",
+      error
+    );
+
+    showError(
+      "Erreur statut professeur",
+      error
+    );
+  }
+}
 
     setMessage(
       newStatus

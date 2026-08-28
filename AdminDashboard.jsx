@@ -884,39 +884,39 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   async function toggleTeacher(teacher) {
-    setMessage("");
+  setMessage("");
 
-    const newActive =
-      teacher.active === false;
+  const newStatus =
+    teacher.is_active === false;
 
-    try {
-      const { error } =
-        await supabase
-          .from("profiles")
-          .update({
-            active: newActive,
-          })
-          .eq("id", teacher.id);
+  try {
+    const { error } =
+      await supabase
+        .from("profiles")
+        .update({
+          is_active: newStatus,
+        })
+        .eq("id", teacher.id);
 
-      if (error) {
-        throw error;
-      }
-
-      setMessage(
-        newActive
-          ? "✅ Professeur réactivé."
-          : "🚫 Professeur désactivé."
-      );
-
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur statut professeur",
-        error
-      );
+    if (error) {
+      throw error;
     }
-  }
 
+    setMessage(
+      newStatus
+        ? "✅ Professeur réactivé."
+        : "🚫 Professeur désactivé."
+    );
+
+    await loadData();
+  } catch (error) {
+    showError(
+      "Erreur statut professeur",
+      error
+    );
+  }
+}
+ 
   function startEditTeacher(teacher) {
     setEditingTeacher(teacher);
 
@@ -1998,12 +1998,11 @@ export default function AdminDashboard({ session, onLogout }) {
                     </span>
 
                     <span>
-                      Statut :{" "}
-                      {teacher.active ===
-                      false
-                        ? "🔴 Inactif"
-                        : "🟢 Actif"}
-                    </span>
+  Statut :{" "}
+  {teacher.is_active === false
+    ? "🔴 Inactif"
+    : "🟢 Actif"}
+</span>
 
                     <button
                       onClick={() =>
@@ -2033,8 +2032,7 @@ export default function AdminDashboard({ session, onLogout }) {
                         )
                       }
                     >
-                      {teacher.active ===
-                      false
+                      teacher.is_active === false
                         ? "✅ Réactiver"
                         : "🚫 Désactiver"}
                     </button>

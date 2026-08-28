@@ -62,16 +62,19 @@ export default function AdminDashboard({ session, onLogout }) {
   });
 
   const [studentForm, setStudentForm] = useState({
-    school_id: "",
-    class_id: "",
-    first_name: "",
-    last_name: "",
-    student_code: "",
-    photo_url: "",
-    active: true,
-    parent_id: "",
-    relationship: "Parent",
-  });
+  school_id: "",
+  class_id: "",
+  first_name: "",
+  last_name: "",
+  login_identifier: "",
+  password: "",
+  password_confirmation: "",
+  student_code: "",
+  photo_url: "",
+  active: true,
+  parent_id: "",
+  relationship: "Parent",
+});
 
   const [schoolForm, setSchoolForm] = useState({
     name: "",
@@ -939,140 +942,222 @@ export default function AdminDashboard({ session, onLogout }) {
   // =========================================================
 
   async function saveStudent(e) {
-    e.preventDefault();
-    setMessage("");
+  e.preventDefault();
+  setMessage("");
 
-    if (!studentForm.school_id) {
-      setMessage(
-        "Veuillez choisir une école."
-      );
-      return;
-    }
+  if (!studentForm.school_id) {
+    setMessage("Veuillez choisir une école.");
+    return;
+  }
 
-    if (!studentForm.first_name.trim()) {
-      setMessage(
-        "Veuillez saisir le prénom."
-      );
-      return;
-    }
+  if (!studentForm.class_id) {
+    setMessage("Veuillez choisir une classe.");
+    return;
+  }
 
-    if (!studentForm.last_name.trim()) {
-      setMessage(
-        "Veuillez saisir le nom."
-      );
-      return;
-    }
+  if (!studentForm.first_name.trim()) {
+    setMessage("Veuillez saisir le prénom.");
+    return;
+  }
 
+  if (!studentForm.last_name.trim()) {
+    setMessage("Veuillez saisir le nom.");
+    return;
+  }
+
+  // =====================================================
+  // MODIFICATION D'UN ÉLÈVE EXISTANT
+  // =====================================================
+
+  if (editingStudent) {
     try {
       const values = {
-        school_id:
-          studentForm.school_id,
-        class_id:
-          studentForm.class_id || null,
-        first_name:
-          studentForm.first_name.trim(),
-        last_name:
-          studentForm.last_name.trim(),
+        school_id: studentForm.school_id,
+        class_id: studentForm.class_id || null,
+        first_name: studentForm.first_name.trim(),
+        last_name: studentForm.last_name.trim(),
         student_code:
-          studentForm.student_code.trim() ||
-          null,
+          studentForm.student_code.trim() || null,
         photo_url:
-          studentForm.photo_url.trim() ||
-          null,
-        active:
-          studentForm.active !== false,
+          studentForm.photo_url.trim() || null,
+        active: studentForm.active !== false,
       };
 
-      let studentId =
-        editingStudent?.id || null;
+      const { error } = await supabase
+        .from("students")
+        .update(values)
+        .eq("id", editingStudent.id);
 
-      if (editingStudent) {
-        const { error } =
-          await supabase
-            .from("students")
-            .update(values)
-            .eq(
-              "id",
-              editingStudent.id
-            );
-
-        if (error) {
-          throw error;
-        }
-
-        setMessage(
-          "✅ Élève modifié avec succès."
-        );
-      } else {
-        const {
-          data,
-          error,
-        } = await supabase
-          .from("students")
-          .insert([values])
-          .select(
-            "id, school_id, class_id, first_name, last_name, student_code, photo_url, active, created_at"
-          )
-          .single();
-
-        if (error) {
-          throw error;
-        }
-
-        studentId = data.id;
-
-        setMessage(
-          "✅ Élève créé avec succès."
-        );
+      if (error) {
+        throw error;
       }
 
-      if (studentId) {
-        const {
-          error: deleteError,
-        } = await supabase
+      // Mettre à jour le parent
+      const { error: deleteRelationError } =
+        await supabase
           .from("parent_students")
           .delete()
-          .eq(
-            "student_id",
-            studentId
-          );
+          .eq("student_id", editingStudent.id);
 
-        if (deleteError) {
-          throw deleteError;
-        }
+      if (deleteRelationError) {
+        throw deleteRelationError;
+      }
 
-        if (studentForm.parent_id) {
-          const {
-            error: parentError,
-          } = await supabase
+      if (studentForm.parent_id) {
+        const { error: parentError } =
+          await supabase
             .from("parent_students")
             .insert([
               {
-                parent_id:
-                  studentForm.parent_id,
-                student_id:
-                  studentId,
+                parent_id: studentForm.parent_id,
+                student_id: editingStudent.id,
                 relationship:
-                  studentForm.relationship ||
-                  "Parent",
+                  studentForm.relationship || "Parent",
               },
             ]);
 
-          if (parentError) {
-            throw parentError;
-          }
+        if (parentError) {
+          throw parentError;
         }
       }
+
+      setMessage(
+        "✅ Élève modifié avec succès."
+      );
 
       resetStudentForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur élève",
-        error
+      showError("Erreur modification élève", error);
+    }
+
+    return;
+  }
+
+  // =====================================================
+  // CRÉATION D'UN NOUVEL ÉLÈVE
+  // =====================================================
+
+  if (!studentForm.login_identifier.trim()) {
+    setMessage(
+      "Veuillez saisir l'identifiant de connexion."
+    );
+    return;
+  }
+
+  if (studentForm.password.length < 6) {
+    setMessage(
+      "Le mot de passe doit contenir au moins 6 caractères."
+    );
+    return;
+  }
+
+  if (
+    studentForm.password !==
+    studentForm.password_confirmation
+  ) {
+    setMessage(
+      "Les deux mots de passe ne correspondent pas."
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const { data, error } =
+      await supabase.functions.invoke(
+        "create-user",
+        {
+          body: {
+            role: "student",
+
+            first_name:
+              studentForm.first_name.trim(),
+
+            last_name:
+              studentForm.last_name.trim(),
+
+            school_id:
+              studentForm.school_id,
+
+            class_id:
+              studentForm.class_id,
+
+            student_code:
+              studentForm.student_code.trim() ||
+              null,
+
+            photo_url:
+              studentForm.photo_url.trim() ||
+              null,
+
+            login_identifier:
+              studentForm.login_identifier.trim(),
+
+            password:
+              studentForm.password,
+          },
+        }
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(
+        data?.error ||
+          "Impossible de créer l'élève."
       );
     }
+
+    // ===================================================
+    // AJOUT DU PARENT
+    // ===================================================
+
+    if (
+      data.student_id &&
+      studentForm.parent_id
+    ) {
+      const { error: parentError } =
+        await supabase
+          .from("parent_students")
+          .insert([
+            {
+              parent_id:
+                studentForm.parent_id,
+
+              student_id:
+                data.student_id,
+
+              relationship:
+                studentForm.relationship ||
+                "Parent",
+            },
+          ]);
+
+      if (parentError) {
+        throw parentError;
+      }
+    }
+
+    setMessage(
+      `✅ Élève créé avec succès ! Identifiant : ${data.login_identifier}`
+    );
+
+    resetStudentForm();
+
+    await loadData();
+  } catch (error) {
+    showError(
+      "Erreur création élève",
+      error
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   async function toggleStudent(student) {
     setMessage("");

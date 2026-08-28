@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { supabase } from "./src/lib/supabase";
+
 import TeacherDashboard from "./TeacherDashboard.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
+import StudentDashboard from "./StudentDashboard.jsx";
+
 import "./styles.css";
 
 function App() {
@@ -15,6 +18,12 @@ function App() {
   const [message, setMessage] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
 
+  /*
+   * =========================================================
+   * RÉCUPÉRER LE RÔLE DE L'UTILISATEUR
+   * =========================================================
+   */
+
   async function loadUserRole(currentSession) {
     if (!currentSession) {
       setRole(null);
@@ -22,27 +31,37 @@ function App() {
     }
 
     try {
-      const { data: profile, error } = await supabase
+      const {
+        data: profile,
+        error,
+      } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", currentSession.user.id)
+        .eq(
+          "id",
+          currentSession.user.id
+        )
         .single();
 
       if (error) {
-        console.error("Erreur profil :", error);
+        console.error(
+          "Erreur profil :",
+          error
+        );
 
         setRole(null);
 
         setMessage(
           "Impossible de récupérer votre rôle : " +
-          error.message
+            error.message
         );
 
         return;
       }
 
-      setRole(profile?.role || null);
-
+      setRole(
+        profile?.role || null
+      );
     } catch (error) {
       console.error(
         "Erreur récupération rôle :",
@@ -57,13 +76,20 @@ function App() {
     }
   }
 
+  /*
+   * =========================================================
+   * CHARGEMENT DE LA SESSION
+   * =========================================================
+   */
+
   useEffect(() => {
     async function loadSession() {
       try {
         const {
           data,
-          error
-        } = await supabase.auth.getSession();
+          error,
+        } =
+          await supabase.auth.getSession();
 
         if (error) {
           console.error(
@@ -73,7 +99,7 @@ function App() {
 
           setMessage(
             "Erreur Supabase : " +
-            error.message
+              error.message
           );
 
           return;
@@ -82,14 +108,15 @@ function App() {
         const currentSession =
           data?.session || null;
 
-        setSession(currentSession);
+        setSession(
+          currentSession
+        );
 
         if (currentSession) {
           await loadUserRole(
             currentSession
           );
         }
-
       } catch (error) {
         console.error(
           "Erreur réseau Supabase :",
@@ -99,7 +126,6 @@ function App() {
         setMessage(
           "Connexion à Supabase impossible."
         );
-
       } finally {
         setLoading(false);
       }
@@ -107,37 +133,54 @@ function App() {
 
     loadSession();
 
+    /*
+     * =======================================================
+     * SURVEILLER LES CHANGEMENTS DE CONNEXION
+     * =======================================================
+     */
+
     const {
       data: {
-        subscription
-      }
-    } = supabase.auth.onAuthStateChange(
-      async (
-        _event,
-        nextSession
-      ) => {
-        setSession(nextSession);
-
-        if (nextSession) {
-          await loadUserRole(
+        subscription,
+      },
+    } =
+      supabase.auth.onAuthStateChange(
+        async (
+          _event,
+          nextSession
+        ) => {
+          setSession(
             nextSession
           );
-        } else {
-          setRole(null);
+
+          if (nextSession) {
+            await loadUserRole(
+              nextSession
+            );
+          } else {
+            setRole(null);
+          }
         }
-      }
-    );
+      );
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
+  /*
+   * =========================================================
+   * CONNEXION
+   * =========================================================
+   */
+
   async function signIn() {
     setMessage("");
 
     const cleanEmail =
-      email.trim().toLowerCase();
+      email
+        .trim()
+        .toLowerCase();
 
     if (!cleanEmail) {
       setMessage(
@@ -160,11 +203,15 @@ function App() {
     try {
       const {
         data,
-        error
-      } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: password
-      });
+        error,
+      } =
+        await supabase.auth.signInWithPassword(
+          {
+            email: cleanEmail,
+            password:
+              password,
+          }
+        );
 
       if (error) {
         console.error(
@@ -174,7 +221,7 @@ function App() {
 
         setMessage(
           "Erreur de connexion : " +
-          error.message
+            error.message
         );
 
         return;
@@ -188,12 +235,13 @@ function App() {
         return;
       }
 
-      setSession(data.session);
+      setSession(
+        data.session
+      );
 
       await loadUserRole(
         data.session
       );
-
     } catch (error) {
       console.error(
         "Erreur réseau :",
@@ -203,31 +251,55 @@ function App() {
       setMessage(
         "Impossible de contacter Supabase."
       );
-
     } finally {
       setLoggingIn(false);
     }
   }
+
+  /*
+   * =========================================================
+   * DÉCONNEXION
+   * =========================================================
+   */
 
   async function signOut() {
     await supabase.auth.signOut();
 
     setSession(null);
     setRole(null);
+
     setEmail("");
     setPassword("");
     setMessage("");
   }
 
+  /*
+   * =========================================================
+   * CHARGEMENT
+   * =========================================================
+   */
+
   if (loading) {
     return (
       <div className="center">
-        Chargement d'École Connectée…
+        Chargement d'École
+        Connectée…
       </div>
     );
   }
 
+  /*
+   * =========================================================
+   * UTILISATEUR CONNECTÉ
+   * =========================================================
+   */
+
   if (session) {
+    /*
+     * -------------------------------------------------------
+     * ADMIN
+     * -------------------------------------------------------
+     */
 
     if (role === "admin") {
       return (
@@ -238,6 +310,12 @@ function App() {
       );
     }
 
+    /*
+     * -------------------------------------------------------
+     * PROFESSEUR
+     * -------------------------------------------------------
+     */
+
     if (role === "teacher") {
       return (
         <TeacherDashboard
@@ -246,6 +324,27 @@ function App() {
         />
       );
     }
+
+    /*
+     * -------------------------------------------------------
+     * ÉLÈVE
+     * -------------------------------------------------------
+     */
+
+    if (role === "student") {
+      return (
+        <StudentDashboard
+          session={session}
+          onLogout={signOut}
+        />
+      );
+    }
+
+    /*
+     * -------------------------------------------------------
+     * RÔLE NON CONFIGURÉ
+     * -------------------------------------------------------
+     */
 
     return (
       <main className="page">
@@ -264,14 +363,17 @@ function App() {
           </h1>
 
           <p className="intro">
-            Votre compte est bien connecté,
-            mais aucun espace n'est encore
-            configuré pour votre rôle.
+            Votre compte est bien
+            connecté, mais aucun
+            espace n'est encore
+            configuré pour votre
+            rôle.
           </p>
 
           <p className="message">
             Rôle actuel :{" "}
-            {role || "non défini"}
+            {role ||
+              "non défini"}
           </p>
 
           <button
@@ -284,6 +386,12 @@ function App() {
       </main>
     );
   }
+
+  /*
+   * =========================================================
+   * PAGE DE CONNEXION
+   * =========================================================
+   */
 
   return (
     <main className="page">
@@ -315,7 +423,9 @@ function App() {
           placeholder="exemple@email.com"
           value={email}
           onChange={(e) =>
-            setEmail(e.target.value)
+            setEmail(
+              e.target.value
+            )
           }
           autoComplete="email"
         />
@@ -329,11 +439,16 @@ function App() {
           placeholder="Votre mot de passe"
           value={password}
           onChange={(e) =>
-            setPassword(e.target.value)
+            setPassword(
+              e.target.value
+            )
           }
           autoComplete="current-password"
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (
+              e.key ===
+              "Enter"
+            ) {
               signIn();
             }
           }}
@@ -341,7 +456,9 @@ function App() {
 
         <button
           onClick={signIn}
-          disabled={loggingIn}
+          disabled={
+            loggingIn
+          }
         >
           {loggingIn
             ? "Connexion..."
@@ -355,7 +472,8 @@ function App() {
         )}
 
         <p className="small">
-          Connexion sécurisée par Supabase.
+          Connexion sécurisée
+          par Supabase.
         </p>
 
       </section>

@@ -910,6 +910,26 @@ export default function AdminDashboard({ session, onLogout }) {
     );
 
     await loadData();
+  } catch (error) {
+    console.error(
+      "Erreur toggleTeacher :",
+      error
+    );
+
+    showError(
+      "Erreur statut professeur",
+      error
+    );
+  }
+}
+
+    setMessage(
+      newActive
+        ? "✅ Professeur réactivé."
+        : "🚫 Professeur désactivé."
+    );
+
+    await loadData();
 
   } catch (error) {
     console.error(

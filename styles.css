@@ -1,5 +1,6 @@
 /* =========================================================
-   ÉCOLE CONNECTÉE — DESIGN V2
+   ÉCOLE CONNECTÉE — ADMIN DASHBOARD V3
+   DESIGN MOBILE / iPHONE
    ========================================================= */
 
 * {
@@ -11,23 +12,23 @@
   --primary-dark: #0f4fb5;
   --primary-light: #eaf2ff;
 
-  --background: #f5f7fb;
+  --background: #f4f7fb;
   --surface: #ffffff;
   --surface-soft: #f8fafc;
 
   --text: #14213d;
-  --muted: #6b7890;
+  --muted: #718096;
 
-  --border: #e6eaf0;
+  --border: #e4e9f0;
 
   --success: #16a34a;
   --warning: #f59e0b;
   --danger: #dc2626;
 
-  --shadow: 0 10px 30px rgba(20, 33, 61, 0.07);
-  --shadow-lg: 0 20px 50px rgba(20, 33, 61, 0.10);
+  --shadow: 0 6px 20px rgba(20, 33, 61, 0.07);
+  --shadow-lg: 0 12px 30px rgba(20, 33, 61, 0.10);
 
-  --radius: 18px;
+  --radius: 16px;
 }
 
 /* =========================================================
@@ -36,10 +37,12 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+
   font-family:
     Inter,
     -apple-system,
@@ -50,7 +53,9 @@ body {
 
   background: var(--background);
   color: var(--text);
+
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button,
@@ -62,6 +67,7 @@ textarea {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -76,94 +82,77 @@ a {
 .page {
   min-height: 100vh;
   width: 100%;
-  padding: 32px;
+
+  padding: 24px;
 }
 
 .center {
   min-height: 100vh;
+
   display: grid;
   place-items: center;
+
   padding: 24px;
+
   color: var(--text);
   font-weight: 700;
 }
 
 /* =========================================================
-   CARD
+   CARD PRINCIPALE
    ========================================================= */
 
 .card {
-  width: min(900px, 100%);
+  width: min(1200px, 100%);
+
   margin: 0 auto;
+
   background: var(--surface);
+
   border: 1px solid var(--border);
   border-radius: 24px;
-  padding: 32px;
+
+  padding: 30px;
+
   box-shadow: var(--shadow);
 }
 
-.login {
-  max-width: 520px;
+.dashboard {
+  width: min(1200px, 100%);
 }
 
 /* =========================================================
-   LOGO
-   ========================================================= */
-
-.logo {
-  width: 68px;
-  height: 68px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 20px;
-
-  background: linear-gradient(
-    135deg,
-    var(--primary),
-    #4f8df7
-  );
-
-  color: white;
-
-  font-size: 21px;
-  font-weight: 900;
-
-  box-shadow:
-    0 12px 25px rgba(23, 105, 224, 0.25);
-}
-
-/* =========================================================
-   TYPOGRAPHY
+   TYPOGRAPHIE
    ========================================================= */
 
 .eyebrow {
-  margin-bottom: 8px;
+  margin: 0 0 6px;
 
   color: var(--primary);
 
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
 
-  letter-spacing: 0.14em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
 h1 {
-  margin: 10px 0 14px;
+  margin: 0 0 8px;
 
   color: var(--text);
 
-  font-size: clamp(32px, 6vw, 52px);
+  font-size: clamp(30px, 5vw, 48px);
+
   line-height: 1.05;
+
   letter-spacing: -0.04em;
 }
 
 h2 {
   margin: 0;
 
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.2;
 }
 
@@ -171,45 +160,59 @@ h3 {
   margin: 0;
 
   font-size: 18px;
+  line-height: 1.3;
 }
 
-.intro {
-  margin: 0;
-
-  color: var(--muted);
-
-  font-size: 17px;
-  line-height: 1.7;
+p {
+  line-height: 1.6;
 }
 
 /* =========================================================
-   DASHBOARD TOP
+   HEADER ADMIN
    ========================================================= */
 
 .top {
   display: flex;
+
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
 
-  gap: 24px;
+  gap: 20px;
 
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid var(--border);
 }
 
 .top > div:first-child {
+  min-width: 0;
   flex: 1;
 }
 
+.top p:last-child {
+  margin: 0;
+
+  color: var(--muted);
+
+  font-size: 14px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* =========================================================
-   BUTTONS
+   BOUTONS
    ========================================================= */
 
 button {
-  border: 0;
-  border-radius: 13px;
+  min-height: 46px;
 
-  min-height: 48px;
-  padding: 0 20px;
+  padding: 0 17px;
+
+  border: 0;
+  border-radius: 12px;
 
   background: linear-gradient(
     135deg,
@@ -219,38 +222,40 @@ button {
 
   color: white;
 
+  font-size: 14px;
   font-weight: 800;
-  font-size: 15px;
 
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
 }
 
 button:hover {
   transform: translateY(-1px);
 
   box-shadow:
-    0 8px 20px rgba(23, 105, 224, 0.22);
+    0 7px 18px rgba(23, 105, 224, 0.20);
 }
 
 button:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+
+  opacity: 0.5;
+
   transform: none;
+
+  box-shadow: none;
 }
 
+/* Boutons secondaires */
+
 .secondary {
-  width: auto;
-
-  margin: 0;
-
-  background: var(--surface);
+  background: white;
 
   color: var(--text);
 
@@ -266,64 +271,99 @@ button:disabled {
 }
 
 /* =========================================================
-   FORMS
+   MESSAGE
    ========================================================= */
 
-label {
-  display: block;
+.message {
+  margin: 0 0 18px;
 
-  margin: 22px 0 8px;
+  padding: 13px 15px;
 
-  color: var(--text);
+  border-radius: 12px;
+
+  background: #eef6ff;
+
+  border: 1px solid #d7e8ff;
+
+  color: var(--primary-dark);
 
   font-size: 14px;
-  font-weight: 800;
-}
 
-input,
-select,
-textarea {
-  width: 100%;
-
-  padding: 14px 16px;
-
-  border: 1px solid var(--border);
-  border-radius: 13px;
-
-  background: var(--surface);
-
-  color: var(--text);
-
-  font-size: 15px;
-
-  outline: none;
-
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--primary);
-
-  box-shadow:
-    0 0 0 4px rgba(23, 105, 224, 0.10);
-}
-
-textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #9aa5b5;
+  font-weight: 700;
 }
 
 /* =========================================================
-   DASHBOARD STATISTICS
+   MENU ADMINISTRATION
+   ========================================================= */
+
+.notice {
+  margin-top: 18px;
+
+  padding: 20px;
+
+  background: var(--primary-light);
+
+  border: 1px solid #d8e6ff;
+
+  border-radius: var(--radius);
+
+  color: #31527f;
+
+  line-height: 1.6;
+}
+
+/*
+   Le premier notice après le header
+   devient le menu principal
+*/
+
+.top + .message + .notice,
+.top + .notice {
+  margin-top: 0;
+}
+
+/* Titre administration */
+
+.notice h2 {
+  color: var(--text);
+}
+
+/* =========================================================
+   MENU EN CARTES
+   ========================================================= */
+
+.notice .grid {
+  margin-top: 16px;
+}
+
+.notice .grid button {
+  min-height: 52px;
+
+  padding: 10px 12px;
+
+  background: white;
+
+  color: var(--text);
+
+  border: 1px solid #dce5f2;
+
+  border-radius: 13px;
+
+  text-align: left;
+
+  box-shadow: 0 3px 10px rgba(20, 33, 61, 0.04);
+}
+
+.notice .grid button:hover {
+  background: #f7faff;
+
+  color: var(--primary);
+
+  border-color: #bcd4f8;
+}
+
+/* =========================================================
+   GRILLES
    ========================================================= */
 
 .grid {
@@ -332,9 +372,17 @@ textarea::placeholder {
   grid-template-columns:
     repeat(3, minmax(0, 1fr));
 
-  gap: 16px;
+  gap: 15px;
 
-  margin-top: 28px;
+  margin-top: 20px;
+}
+
+/* =========================================================
+   STATISTIQUES
+   ========================================================= */
+
+.grid > .stat {
+  min-width: 0;
 }
 
 .stat {
@@ -342,24 +390,15 @@ textarea::placeholder {
 
   overflow: hidden;
 
-  padding: 22px;
+  padding: 19px;
 
   background: var(--surface);
 
   border: 1px solid var(--border);
+
   border-radius: var(--radius);
 
   box-shadow: var(--shadow);
-
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.stat:hover {
-  transform: translateY(-3px);
-
-  box-shadow: var(--shadow-lg);
 }
 
 .stat::before {
@@ -376,150 +415,227 @@ textarea::placeholder {
   background: var(--primary);
 }
 
+.stat:hover {
+  box-shadow: var(--shadow-lg);
+
+  transform: translateY(-2px);
+}
+
 .stat strong {
   display: block;
 
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 
   color: var(--text);
 
-  font-size: 32px;
-  line-height: 1;
+  font-size: 28px;
+
+  line-height: 1.15;
+
+  word-break: break-word;
 }
 
 .stat span {
-  color: var(--muted);
+  display: block;
 
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* =========================================================
-   NOTICE
-   ========================================================= */
-
-.notice {
-  margin-top: 22px;
-
-  padding: 20px 22px;
-
-  background: var(--primary-light);
-
-  border: 1px solid #d7e5ff;
-
-  border-radius: var(--radius);
-
-  color: #31527f;
-
-  line-height: 1.7;
-}
-
-.notice strong {
-  color: var(--primary-dark);
-}
-
-/* =========================================================
-   MESSAGE
-   ========================================================= */
-
-.message {
-  margin-top: 16px;
-
-  padding: 12px 15px;
-
-  border-radius: 12px;
-
-  background: var(--surface-soft);
-
-  color: var(--text);
-
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.small {
-  margin-top: 22px;
+  margin-top: 6px;
 
   color: var(--muted);
 
   font-size: 13px;
-  line-height: 1.6;
+
+  line-height: 1.45;
+
+  word-break: break-word;
 }
 
 /* =========================================================
-   DASHBOARD SECTIONS
+   STATISTIQUES DU DASHBOARD
    ========================================================= */
 
-.dashboard {
-  width: min(1200px, 100%);
-  margin: 0 auto;
+.dashboard > .grid:first-of-type {
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  margin-top: 20px;
 }
 
-.section {
-  margin-top: 28px;
+.dashboard > .grid:first-of-type .stat {
+  min-height: 110px;
 
-  background: var(--surface);
+  display: flex;
 
-  border: 1px solid var(--border);
+  flex-direction: column;
 
-  border-radius: var(--radius);
+  justify-content: center;
+}
+
+.dashboard > .grid:first-of-type .stat strong {
+  margin-bottom: 7px;
+
+  color: var(--primary);
+
+  font-size: 30px;
+}
+
+.dashboard > .grid:first-of-type .stat span {
+  margin: 0;
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+/* =========================================================
+   FORMULAIRES
+   ========================================================= */
+
+form.notice {
+  background: white;
+
+  border-color: var(--border);
+
+  color: var(--text);
 
   box-shadow: var(--shadow);
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+label {
+  display: block;
 
-  gap: 16px;
+  margin: 18px 0 7px;
 
-  padding: 20px 22px;
+  color: var(--text);
 
-  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+
+  font-weight: 800;
 }
 
-.section-body {
-  padding: 22px;
-}
+input,
+select,
+textarea {
+  width: 100%;
 
-/* =========================================================
-   LISTS
-   ========================================================= */
+  min-height: 48px;
 
-.list {
-  display: flex;
-  flex-direction: column;
-
-  gap: 10px;
-}
-
-.list-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  gap: 16px;
-
-  padding: 16px;
-
-  background: var(--surface-soft);
+  padding: 12px 14px;
 
   border: 1px solid var(--border);
 
-  border-radius: 14px;
+  border-radius: 12px;
+
+  background: white;
+
+  color: var(--text);
+
+  font-size: 15px;
+
+  outline: none;
+
+  appearance: auto;
 }
 
-.list-item strong {
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px rgba(23, 105, 224, 0.10);
+}
+
+textarea {
+  min-height: 110px;
+
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9aa5b5;
+}
+
+/* =========================================================
+   BOUTONS DANS LES FORMULAIRES
+   ========================================================= */
+
+form button {
+  margin-top: 16px;
+
+  margin-right: 8px;
+}
+
+form .secondary {
+  margin-right: 0;
+}
+
+/* =========================================================
+   FICHES PROFESSEURS / ÉLÈVES
+   ========================================================= */
+
+.stat button {
+  width: 100%;
+
+  margin-top: 10px;
+}
+
+.stat button.secondary {
+  background: var(--surface-soft);
+}
+
+.stat img {
   display: block;
 
-  margin-bottom: 4px;
+  margin-bottom: 12px;
+
+  border: 3px solid #e8eef7;
 }
 
-.list-item span {
-  color: var(--muted);
+/* =========================================================
+   AFFECTATION PROFESSEUR
+   ========================================================= */
 
-  font-size: 13px;
+.notice hr {
+  margin: 20px 0;
+
+  border: 0;
+
+  border-top: 1px solid #d8e4f4;
+}
+
+.notice .grid button {
+  text-align: center;
+
+  min-height: 48px;
+}
+
+/* =========================================================
+   LIENS DOCUMENTS
+   ========================================================= */
+
+.stat a {
+  display: block;
+
+  margin-top: 12px;
+
+  padding: 12px;
+
+  border-radius: 10px;
+
+  background: var(--primary-light);
+
+  color: var(--primary-dark);
+
+  font-size: 14px;
+
+  font-weight: 800;
+
+  text-align: center;
+}
+
+.stat a:hover {
+  background: #dceaff;
 }
 
 /* =========================================================
@@ -528,7 +644,10 @@ textarea::placeholder {
 
 .badge {
   display: inline-flex;
+
   align-items: center;
+
+  width: fit-content;
 
   padding: 6px 10px;
 
@@ -539,125 +658,448 @@ textarea::placeholder {
   color: var(--primary-dark);
 
   font-size: 12px;
+
   font-weight: 800;
 }
 
 .badge.success {
   background: #eaf8ef;
+
   color: var(--success);
 }
 
 .badge.warning {
   background: #fff6df;
+
   color: #a16207;
 }
 
 .badge.danger {
   background: #fef0f0;
+
   color: var(--danger);
 }
 
 /* =========================================================
-   RESPONSIVE TABLET
+   SECTIONS
    ========================================================= */
 
-@media (max-width: 850px) {
+.section {
+  margin-top: 22px;
+
+  background: white;
+
+  border: 1px solid var(--border);
+
+  border-radius: var(--radius);
+
+  box-shadow: var(--shadow);
+
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 18px 20px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.section-body {
+  padding: 20px;
+}
+
+/* =========================================================
+   LISTES
+   ========================================================= */
+
+.list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 10px;
+}
+
+.list-item {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 14px;
+
+  background: var(--surface-soft);
+
+  border: 1px solid var(--border);
+
+  border-radius: 12px;
+}
+
+.list-item strong {
+  display: block;
+
+  margin-bottom: 3px;
+}
+
+.list-item span {
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+/* =========================================================
+   TABLETTE
+   ========================================================= */
+
+@media (max-width: 900px) {
   .page {
-    padding: 20px;
+    padding: 18px;
   }
 
   .card {
-    padding: 26px;
+    padding: 24px;
   }
 
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard > .grid:first-of-type {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
   }
 }
 
 /* =========================================================
-   RESPONSIVE MOBILE
+   IPHONE / MOBILE
    ========================================================= */
 
 @media (max-width: 600px) {
-  .page {
-    padding: 14px;
+  body {
+    background: #f4f7fb;
   }
 
-  .card {
-    padding: 22px 18px;
-
-    border-radius: 20px;
-  }
-
-  .top {
-    flex-direction: column;
-
-    gap: 18px;
-  }
-
-  .top button,
-  .secondary {
-    width: 100%;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-
-    gap: 12px;
-  }
-
-  .stat {
-    padding: 20px;
-  }
-
-  h1 {
-    font-size: 34px;
-  }
-
-  h2 {
-    font-size: 23px;
-  }
-
-  .intro {
-    font-size: 15px;
-  }
-
-  .section-header {
-    align-items: flex-start;
-
-    flex-direction: column;
-  }
-
-  .section-body {
-    padding: 16px;
-  }
-
-  .list-item {
-    align-items: flex-start;
-
-    flex-direction: column;
-  }
-}
-
-/* =========================================================
-   SMALL PHONES
-   ========================================================= */
-
-@media (max-width: 380px) {
   .page {
     padding: 10px;
   }
 
   .card {
-    padding: 18px 14px;
+    width: 100%;
+
+    padding: 16px 13px;
+
+    border-radius: 18px;
+
+    box-shadow: none;
+
+    border: 1px solid #e8edf3;
+  }
+
+  /* HEADER */
+
+  .top {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    gap: 14px;
+
+    margin-bottom: 18px;
+
+    padding-bottom: 17px;
+  }
+
+  .top button {
+    width: 100%;
+
+    min-height: 48px;
   }
 
   h1 {
-    font-size: 30px;
+    font-size: 31px;
+
+    letter-spacing: -0.035em;
+  }
+
+  h2 {
+    font-size: 21px;
+  }
+
+  h3 {
+    font-size: 17px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+  }
+
+  /* MESSAGE */
+
+  .message {
+    margin-bottom: 14px;
+
+    font-size: 13px;
+  }
+
+  /* NOTICE */
+
+  .notice {
+    margin-top: 14px;
+
+    padding: 16px;
+
+    border-radius: 15px;
+  }
+
+  /* MENU ADMIN */
+
+  .notice .grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 9px;
+
+    margin-top: 14px;
+  }
+
+  .notice .grid button {
+    min-height: 54px;
+
+    padding: 8px 9px;
+
+    font-size: 12px;
+
+    line-height: 1.25;
+
+    border-radius: 11px;
+  }
+
+  /* GRILLES */
+
+  .grid {
+    grid-template-columns: 1fr;
+
+    gap: 11px;
+
+    margin-top: 14px;
+  }
+
+  /* DASHBOARD STATS */
+
+  .dashboard > .grid:first-of-type {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 9px;
+
+    margin-top: 14px;
+  }
+
+  .dashboard > .grid:first-of-type .stat {
+    min-height: 92px;
+
+    padding: 15px;
+  }
+
+  .dashboard > .grid:first-of-type .stat strong {
+    font-size: 25px;
+
+    margin-bottom: 5px;
+  }
+
+  .dashboard > .grid:first-of-type .stat span {
+    font-size: 11px;
+  }
+
+  /* CARTES */
+
+  .stat {
+    padding: 16px;
+
+    border-radius: 14px;
   }
 
   .stat strong {
+    font-size: 22px;
+  }
+
+  .stat span {
+    font-size: 13px;
+  }
+
+  /* FORMULAIRES */
+
+  form.notice {
+    padding: 16px;
+  }
+
+  label {
+    margin-top: 15px;
+
+    font-size: 13px;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 48px;
+
+    padding: 12px;
+
+    font-size: 16px;
+  }
+
+  form button {
+    width: 100%;
+
+    margin: 9px 0 0;
+  }
+
+  /* BOUTONS DES CARTES */
+
+  .stat button {
+    width: 100%;
+
+    min-height: 46px;
+
+    margin-top: 9px;
+
+    font-size: 13px;
+  }
+
+  /* AFFECTATIONS */
+
+  .notice hr {
+    margin: 16px 0;
+  }
+
+  .notice .grid button {
+    min-height: 47px;
+
+    font-size: 12px;
+  }
+
+  /* PHOTO ÉLÈVE */
+
+  .stat img {
+    width: 70px !important;
+    height: 70px !important;
+
+    border-radius: 50%;
+  }
+
+  /* DOCUMENTS */
+
+  .stat a {
+    min-height: 44px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin-top: 10px;
+
+    font-size: 13px;
+  }
+
+  /* LISTES */
+
+  .list-item {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    gap: 10px;
+  }
+
+  /* SECTIONS */
+
+  .section-header {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    padding: 16px;
+  }
+
+  .section-body {
+    padding: 15px;
+  }
+}
+
+/* =========================================================
+   PETITS IPHONE
+   ========================================================= */
+
+@media (max-width: 380px) {
+  .page {
+    padding: 7px;
+  }
+
+  .card {
+    padding: 14px 11px;
+  }
+
+  h1 {
     font-size: 28px;
+  }
+
+  .notice {
+    padding: 14px;
+  }
+
+  .notice .grid {
+    gap: 7px;
+  }
+
+  .notice .grid button {
+    min-height: 51px;
+
+    padding: 7px;
+
+    font-size: 11px;
+  }
+
+  .dashboard > .grid:first-of-type {
+    gap: 7px;
+  }
+
+  .dashboard > .grid:first-of-type .stat {
+    padding: 12px;
+
+    min-height: 85px;
+  }
+
+  .dashboard > .grid:first-of-type .stat strong {
+    font-size: 22px;
+  }
+
+  .stat {
+    padding: 14px;
+  }
+}
+
+/* =========================================================
+   IPHONE — SAFE AREA
+   ========================================================= */
+
+@supports (padding: max(0px)) {
+  .page {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }

@@ -29,57 +29,29 @@ export default function AdminDashboard({ session, onLogout }) {
   const [exercises, setExercises] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [notifications, setNotifications] = useState([]);
-
   const [teacherClasses, setTeacherClasses] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [activeSection, setActiveSection] = useState("dashboard");
 
-  const [activeSection, setActiveSection] =
-    useState("dashboard");
+  const [showTeacherForm, setShowTeacherForm] = useState(false);
+  const [showStudentForm, setShowStudentForm] = useState(false);
+  const [showSchoolForm, setShowSchoolForm] = useState(false);
+  const [showClassForm, setShowClassForm] = useState(false);
+  const [showSubjectForm, setShowSubjectForm] = useState(false);
 
-  const [showTeacherForm, setShowTeacherForm] =
-    useState(false);
-
-  const [showStudentForm, setShowStudentForm] =
-    useState(false);
-
-  const [showSchoolForm, setShowSchoolForm] =
-    useState(false);
-
-  const [showClassForm, setShowClassForm] =
-    useState(false);
-
-  const [showSubjectForm, setShowSubjectForm] =
-    useState(false);
-
-  const [editingTeacher, setEditingTeacher] =
-    useState(null);
-
-  const [editingStudent, setEditingStudent] =
-    useState(null);
-
-  const [editingSchool, setEditingSchool] =
-    useState(null);
-
-  const [editingClass, setEditingClass] =
-    useState(null);
-
-  const [editingSubject, setEditingSubject] =
-    useState(null);
+  const [editingTeacher, setEditingTeacher] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editingSchool, setEditingSchool] = useState(null);
+  const [editingClass, setEditingClass] = useState(null);
+  const [editingSubject, setEditingSubject] = useState(null);
 
   // Attribution professeur
-  const [assignmentTeacher, setAssignmentTeacher] =
-    useState(null);
-
-  const [selectedClasses, setSelectedClasses] =
-    useState([]);
-
-  const [selectedSubjects, setSelectedSubjects] =
-    useState([]);
-
-  const [assignmentLoading, setAssignmentLoading] =
-    useState(false);
+  const [assignmentTeacher, setAssignmentTeacher] = useState(null);
+  const [selectedClasses, setSelectedClasses] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   const [teacherForm, setTeacherForm] = useState({
     full_name: "",
@@ -160,12 +132,10 @@ export default function AdminDashboard({ session, onLogout }) {
       .eq("role", role)
       .order("full_name");
 
-    // Si active n'existe pas
+    // Si la colonne active n'existe pas
     if (
       result.error &&
-      result.error.message
-        ?.toLowerCase()
-        .includes("active")
+      result.error.message?.toLowerCase().includes("active")
     ) {
       result = await supabase
         .from("profiles")
@@ -376,7 +346,7 @@ export default function AdminDashboard({ session, onLogout }) {
         throw requiredErrors[0];
       }
 
-      // Les modules secondaires ne bloquent pas
+      // Modules secondaires
       if (parentsResult.error) {
         console.warn(
           "Parents :",
@@ -696,9 +666,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
   async function saveTeacherAssignments() {
     if (!assignmentTeacher?.id) {
-      setMessage(
-        "❌ Professeur introuvable."
-      );
+      setMessage("❌ Professeur introuvable.");
       return;
     }
 
@@ -720,24 +688,21 @@ export default function AdminDashboard({ session, onLogout }) {
         throw deleteError;
       }
 
-      // Créer les nouvelles affectations
       const rows = [];
 
       for (const classId of selectedClasses) {
         // Si aucune matière n'est sélectionnée,
-        // on crée quand même l'affectation de classe.
+        // on crée l'affectation de classe seule.
         if (selectedSubjects.length === 0) {
           rows.push({
-            teacher_id:
-              assignmentTeacher.id,
+            teacher_id: assignmentTeacher.id,
             class_id: classId,
             subject_id: null,
           });
         } else {
           for (const subjectId of selectedSubjects) {
             rows.push({
-              teacher_id:
-                assignmentTeacher.id,
+              teacher_id: assignmentTeacher.id,
               class_id: classId,
               subject_id: Number(subjectId),
             });
@@ -1980,12 +1945,12 @@ export default function AdminDashboard({ session, onLogout }) {
           <div className="grid">
             {teachers.map(
               (teacher) => {
-                const teacherClasses =
+                const teacherClassNames =
                   getTeacherClassNames(
                     teacher.id
                   );
 
-                const teacherSubjects =
+                const teacherSubjectNames =
                   getTeacherSubjectNames(
                     teacher.id
                   );
@@ -2016,8 +1981,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
                     <span>
                       📚 Classes :{" "}
-                      {teacherClasses.length
-                        ? teacherClasses.join(
+                      {teacherClassNames.length
+                        ? teacherClassNames.join(
                             ", "
                           )
                         : "Aucune classe"}
@@ -2025,8 +1990,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
                     <span>
                       📖 Matières :{" "}
-                      {teacherSubjects.length
-                        ? teacherSubjects.join(
+                      {teacherSubjectNames.length
+                        ? teacherSubjectNames.join(
                             ", "
                           )
                         : "Aucune matière"}

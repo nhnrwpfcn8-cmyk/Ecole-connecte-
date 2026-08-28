@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./src/lib/supabase";
 
+const STORAGE_BUCKET = "school-documents";
+
 export default function TeacherDashboard({ session, onLogout }) {
   const [documents, setDocuments] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -23,9 +25,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [showEvaluationForm, setShowEvaluationForm] = useState(false);
 
-  // =========================
+  // =====================================================
   // DOCUMENT
-  // =========================
+  // =====================================================
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -35,9 +37,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // =========================
+  // =====================================================
   // EXERCICE
-  // =========================
+  // =====================================================
 
   const [exerciseTitle, setExerciseTitle] = useState("");
   const [exerciseDescription, setExerciseDescription] = useState("");
@@ -47,9 +49,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [exerciseSubjectId, setExerciseSubjectId] = useState("");
   const [publishingExercise, setPublishingExercise] = useState(false);
 
-  // =========================
+  // =====================================================
   // VIDEO
-  // =========================
+  // =====================================================
 
   const [videoTitle, setVideoTitle] = useState("");
   const [videoDescription, setVideoDescription] = useState("");
@@ -58,9 +60,9 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [videoSubjectId, setVideoSubjectId] = useState("");
   const [publishingVideo, setPublishingVideo] = useState(false);
 
-  // =========================
+  // =====================================================
   // LIEN
-  // =========================
+  // =====================================================
 
   const [linkTitle, setLinkTitle] = useState("");
   const [linkDescription, setLinkDescription] = useState("");
@@ -69,24 +71,28 @@ export default function TeacherDashboard({ session, onLogout }) {
   const [linkSubjectId, setLinkSubjectId] = useState("");
   const [publishingLink, setPublishingLink] = useState(false);
 
-  // =========================
+  // =====================================================
   // EVALUATION
-  // =========================
+  // =====================================================
 
   const [evaluationStudentId, setEvaluationStudentId] = useState("");
   const [evaluationStars, setEvaluationStars] = useState(5);
   const [evaluationComment, setEvaluationComment] = useState("");
   const [evaluating, setEvaluating] = useState(false);
 
-  // =========================
-  // CHARGEMENT
-  // =========================
+  // =====================================================
+  // CHARGEMENT INITIAL
+  // =====================================================
 
   useEffect(() => {
     if (session?.user?.id) {
       loadData();
     }
   }, [session]);
+
+  // =====================================================
+  // CHARGEMENT DES DONNÉES
+  // =====================================================
 
   async function loadData() {
     setLoading(true);
@@ -95,9 +101,9 @@ export default function TeacherDashboard({ session, onLogout }) {
     try {
       const teacherId = session.user.id;
 
-      // ==========================================
-      // 1. PROFIL DU PROFESSEUR
-      // ==========================================
+      // -------------------------------------------------
+      // 1. PROFIL
+      // -------------------------------------------------
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -109,158 +115,194 @@ export default function TeacherDashboard({ session, onLogout }) {
         throw profileError;
       }
 
+      if (!profile) {
+        throw new Error("Profil professeur introuvable.");
+      }
+
       setSchoolId(profile.school_id);
       setTeacherName(profile.full_name || "");
 
-      // ==========================================
+      // -------------------------------------------------
       // 2. DOCUMENTS
-      // ==========================================
+      // -------------------------------------------------
 
-      const documentsResult = await supabase
-        .from("documents")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .order("created_at", {
-          ascending: false,
-        });
+      const { data: documentsData, error: documentsError } =
+        await supabase
+          .from("documents")
+          .select("*")
+          .eq("teacher_id", teacherId)
+          .order("created_at", {
+            ascending: false,
+          });
 
-      if (documentsResult.error) {
-        throw documentsResult.error;
+      if (documentsError) {
+        throw documentsError;
       }
 
-      setDocuments(documentsResult.data || []);
+      setDocuments(documentsData || []);
 
-      // ==========================================
+      // -------------------------------------------------
       // 3. EXERCICES
-      // ==========================================
+      // -------------------------------------------------
 
-      const exercisesResult = await supabase
-        .from("exercises")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .order("created_at", {
-          ascending: false,
-        });
+      const { data: exercisesData, error: exercisesError } =
+        await supabase
+          .from("exercises")
+          .select("*")
+          .eq("teacher_id", teacherId)
+          .order("created_at", {
+            ascending: false,
+          });
 
-      if (exercisesResult.error) {
-        throw exercisesResult.error;
+      if (exercisesError) {
+        throw exercisesError;
       }
 
-      setExercises(exercisesResult.data || []);
+      setExercises(exercisesData || []);
 
-      // ==========================================
-      // 4. TOUTES LES CLASSES DE L'ÉCOLE
-      // ==========================================
+      // -------------------------------------------------
+      // 4. CLASSES DE L'ÉCOLE
+      // -------------------------------------------------
 
-      const classesResult = await supabase
-        .from("classes")
-        .select("*")
-        .eq("school_id", profile.school_id)
-        .order("name");
+      const { data: allClasses, error: classesError } =
+        await supabase
+          .from("classes")
+          .select("id, school_id, name, level, created_at")
+          .eq("school_id", profile.school_id)
+          .order("name", {
+            ascending: true,
+          });
 
-      if (classesResult.error) {
-        throw classesResult.error;
+      if (classesError) {
+        throw classesError;
       }
 
-      const allClasses = classesResult.data || [];
+      const classList = allClasses || [];
 
-      setClasses(allClasses);
+      setClasses(classList);
 
-      // ==========================================
-      // 5. TOUTES LES MATIÈRES
-      // ==========================================
+      // -------------------------------------------------
+      // 5. MATIÈRES
+      // -------------------------------------------------
 
-      const subjectsResult = await supabase
-        .from("subjects")
-        .select("*")
-        .order("name");
+      const { data: allSubjects, error: subjectsError } =
+        await supabase
+          .from("subjects")
+          .select("id, name, created_at")
+          .order("name", {
+            ascending: true,
+          });
 
-      if (subjectsResult.error) {
-        throw subjectsResult.error;
+      if (subjectsError) {
+        throw subjectsError;
       }
 
-      const allSubjects = subjectsResult.data || [];
+      const subjectList = allSubjects || [];
 
-      setSubjects(allSubjects);
+      setSubjects(subjectList);
 
-      // ==========================================
+      // -------------------------------------------------
       // 6. ATTRIBUTIONS DU PROFESSEUR
-      // ==========================================
+      // -------------------------------------------------
 
-      const assignmentsResult = await supabase
+      const {
+        data: assignments,
+        error: assignmentsError,
+      } = await supabase
         .from("teacher_classes")
-        .select("id, teacher_id, class_id, subject_id")
+        .select(
+          "id, teacher_id, class_id, subject_id"
+        )
         .eq("teacher_id", teacherId);
 
-      if (assignmentsResult.error) {
-        throw assignmentsResult.error;
+      if (assignmentsError) {
+        throw assignmentsError;
       }
 
-      const assignments = assignmentsResult.data || [];
+      const assignmentList = assignments || [];
 
-      // ==========================================
+      // -------------------------------------------------
       // 7. CLASSES ATTRIBUÉES
-      // ==========================================
+      // -------------------------------------------------
 
       const assignedClassIds = [
         ...new Set(
-          assignments
+          assignmentList
             .map((item) => item.class_id)
-            .filter(Boolean)
+            .filter(
+              (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ""
+            )
             .map(String)
         ),
       ];
 
-      const assignedClassList = allClasses.filter((item) =>
+      const assignedClassList = classList.filter((item) =>
         assignedClassIds.includes(String(item.id))
       );
 
       setAssignedClasses(assignedClassList);
 
-      // ==========================================
+      // -------------------------------------------------
       // 8. MATIÈRES ATTRIBUÉES
-      // ==========================================
+      // -------------------------------------------------
 
       const assignedSubjectIds = [
         ...new Set(
-          assignments
+          assignmentList
             .map((item) => item.subject_id)
-            .filter((id) => id !== null && id !== undefined)
+            .filter(
+              (value) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ""
+            )
             .map(String)
         ),
       ];
 
-      const assignedSubjectList = allSubjects.filter((item) =>
+      const assignedSubjectList = subjectList.filter((item) =>
         assignedSubjectIds.includes(String(item.id))
       );
 
       setAssignedSubjects(assignedSubjectList);
 
-      // ==========================================
-      // 9. ÉLÈVES DE L'ÉCOLE
-      // ==========================================
+      // -------------------------------------------------
+      // 9. ÉLÈVES
+      // -------------------------------------------------
 
-      const studentsResult = await supabase
+      const {
+        data: studentsData,
+        error: studentsError,
+      } = await supabase
         .from("students")
         .select("*")
         .eq("school_id", profile.school_id)
-        .order("last_name");
+        .order("last_name", {
+          ascending: true,
+        });
 
-      if (!studentsResult.error) {
-        setStudents(studentsResult.data || []);
+      if (!studentsError) {
+        setStudents(studentsData || []);
       } else {
         console.error(
           "Erreur chargement élèves :",
-          studentsResult.error
+          studentsError
         );
+
         setStudents([]);
       }
 
-      // ==========================================
+      // -------------------------------------------------
       // 10. ÉVALUATIONS
-      // ==========================================
+      // -------------------------------------------------
 
-      const evaluationsResult = await supabase
+      const {
+        data: evaluationsData,
+        error: evaluationsError,
+      } = await supabase
         .from("student_evaluations")
         .select("*")
         .eq("teacher_id", teacherId)
@@ -268,13 +310,14 @@ export default function TeacherDashboard({ session, onLogout }) {
           ascending: false,
         });
 
-      if (!evaluationsResult.error) {
-        setEvaluations(evaluationsResult.data || []);
+      if (!evaluationsError) {
+        setEvaluations(evaluationsData || []);
       } else {
         console.error(
           "Erreur chargement évaluations :",
-          evaluationsResult.error
+          evaluationsError
         );
+
         setEvaluations([]);
       }
     } catch (error) {
@@ -289,15 +332,98 @@ export default function TeacherDashboard({ session, onLogout }) {
     }
   }
 
-  // =========================
+  // =====================================================
+  // OUVRIR UN DOCUMENT PRIVÉ
+  // =====================================================
+
+  async function openDocument(document) {
+    setMessage("");
+
+    try {
+      if (!document?.file_url) {
+        setMessage(
+          "❌ Aucun fichier associé à ce document."
+        );
+        return;
+      }
+
+      /*
+       * IMPORTANT :
+       * file_url contient maintenant le CHEMIN du fichier
+       * dans le bucket, par exemple :
+       *
+       * teacher-id/123456-document.pdf
+       *
+       * et non une URL publique.
+       */
+
+      const filePath = document.file_url;
+
+      const {
+        data,
+        error,
+      } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(
+          filePath,
+          60 * 60
+        );
+
+      if (error) {
+        console.error(
+          "Erreur création URL signée :",
+          error
+        );
+
+        setMessage(
+          "❌ Impossible d'ouvrir le document : " +
+            error.message
+        );
+
+        return;
+      }
+
+      if (!data?.signedUrl) {
+        setMessage(
+          "❌ URL du document introuvable."
+        );
+
+        return;
+      }
+
+      window.open(
+        data.signedUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (error) {
+      console.error(
+        "Erreur ouverture document :",
+        error
+      );
+
+      setMessage(
+        "❌ Impossible d'ouvrir le document."
+      );
+    }
+  }
+
+  // =====================================================
   // DOCUMENT
-  // =========================
+  // =====================================================
 
   async function publishDocument() {
     setMessage("");
 
     if (!title.trim()) {
       setMessage("Veuillez saisir un titre.");
+      return;
+    }
+
+    if (!schoolId) {
+      setMessage(
+        "Votre profil n'est associé à aucune école."
+      );
       return;
     }
 
@@ -319,38 +445,105 @@ export default function TeacherDashboard({ session, onLogout }) {
     setUploading(true);
 
     try {
-      const filePath =
-        `${session.user.id}/${Date.now()}-${file.name}`;
+      const teacherId = session.user.id;
 
-      const { error: uploadError } = await supabase.storage
-        .from("school-documents")
-        .upload(filePath, file);
+      // -------------------------------------------------
+      // NETTOYAGE DU NOM DU FICHIER
+      // -------------------------------------------------
+
+      const safeFileName = file.name
+        .replace(/[^\w.\-() ]/g, "_")
+        .replace(/\s+/g, "_");
+
+      // -------------------------------------------------
+      // CHEMIN DU FICHIER
+      // -------------------------------------------------
+
+      const filePath =
+        `${teacherId}/${Date.now()}-${safeFileName}`;
+
+      // -------------------------------------------------
+      // UPLOAD
+      // -------------------------------------------------
+
+      const {
+        error: uploadError,
+      } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(
+          filePath,
+          file,
+          {
+            cacheControl: "3600",
+            upsert: false,
+            contentType:
+              file.type || undefined,
+          }
+        );
 
       if (uploadError) {
-        throw uploadError;
+        console.error(
+          "Erreur upload :",
+          uploadError
+        );
+
+        throw new Error(
+          "Impossible d'envoyer le fichier : " +
+            uploadError.message
+        );
       }
 
-      const { data: publicUrlData } = supabase.storage
-        .from("school-documents")
-        .getPublicUrl(filePath);
+      // -------------------------------------------------
+      // ENREGISTREMENT EN BASE
+      // -------------------------------------------------
 
-      const { error: insertError } = await supabase
+      const {
+        data: insertedDocument,
+        error: insertError,
+      } = await supabase
         .from("documents")
         .insert({
-          teacher_id: session.user.id,
+          teacher_id: teacherId,
           class_id: classId,
           subject_id: Number(subjectId),
           title: title.trim(),
-          description: description.trim(),
+          description:
+            description.trim() || null,
           document_type: documentType,
-          file_url: publicUrlData.publicUrl,
-        });
+          file_url: filePath,
+        })
+        .select()
+        .single();
 
       if (insertError) {
-        throw insertError;
+        console.error(
+          "Erreur insertion document :",
+          insertError
+        );
+
+        // Suppression du fichier si la DB échoue
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove([filePath]);
+
+        throw new Error(
+          "Le document n'a pas pu être enregistré : " +
+            insertError.message
+        );
       }
 
-      setMessage("Document publié avec succès !");
+      console.log(
+        "Document enregistré :",
+        insertedDocument
+      );
+
+      // -------------------------------------------------
+      // RESET
+      // -------------------------------------------------
+
+      setMessage(
+        "✅ Document publié avec succès !"
+      );
 
       setTitle("");
       setDescription("");
@@ -363,20 +556,24 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       await loadData();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erreur publication document :",
+        error
+      );
 
       setMessage(
-        "Erreur : " +
-          (error?.message || "Erreur inconnue")
+        "❌ Erreur : " +
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setUploading(false);
     }
   }
 
-  // =========================
+  // =====================================================
   // EXERCICE
-  // =========================
+  // =====================================================
 
   async function publishExercise() {
     setMessage("");
@@ -430,7 +627,8 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: exerciseClassId,
           subject_id: Number(exerciseSubjectId),
           title: exerciseTitle.trim(),
-          description: exerciseDescription.trim(),
+          description:
+            exerciseDescription.trim() || null,
           instructions: instructions.trim(),
           duration_minutes: durationNumber,
           published: true,
@@ -440,7 +638,9 @@ export default function TeacherDashboard({ session, onLogout }) {
         throw error;
       }
 
-      setMessage("Exercice publié avec succès !");
+      setMessage(
+        "✅ Exercice publié avec succès !"
+      );
 
       setExerciseTitle("");
       setExerciseDescription("");
@@ -457,16 +657,17 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       setMessage(
         "Erreur lors de la publication de l'exercice : " +
-          (error?.message || "Erreur inconnue")
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setPublishingExercise(false);
     }
   }
 
-  // =========================
+  // =====================================================
   // VIDEO
-  // =========================
+  // =====================================================
 
   async function publishVideo() {
     setMessage("");
@@ -513,7 +714,8 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: videoClassId,
           subject_id: Number(videoSubjectId),
           title: videoTitle.trim(),
-          description: videoDescription.trim(),
+          description:
+            videoDescription.trim() || null,
           video_url: videoUrl.trim(),
         });
 
@@ -537,16 +739,17 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       setMessage(
         "Erreur vidéo : " +
-          (error?.message || "Erreur inconnue")
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setPublishingVideo(false);
     }
   }
 
-  // =========================
+  // =====================================================
   // LIEN
-  // =========================
+  // =====================================================
 
   async function publishLink() {
     setMessage("");
@@ -593,7 +796,8 @@ export default function TeacherDashboard({ session, onLogout }) {
           class_id: linkClassId,
           subject_id: Number(linkSubjectId),
           title: linkTitle.trim(),
-          description: linkDescription.trim(),
+          description:
+            linkDescription.trim() || null,
           url: linkUrl.trim(),
         });
 
@@ -617,16 +821,17 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       setMessage(
         "Erreur lien : " +
-          (error?.message || "Erreur inconnue")
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setPublishingLink(false);
     }
   }
 
-  // =========================
+  // =====================================================
   // EVALUATION
-  // =========================
+  // =====================================================
 
   async function evaluateStudent() {
     setMessage("");
@@ -679,16 +884,17 @@ export default function TeacherDashboard({ session, onLogout }) {
 
       setMessage(
         "Erreur évaluation : " +
-          (error?.message || "Erreur inconnue")
+          (error?.message ||
+            "Erreur inconnue")
       );
     } finally {
       setEvaluating(false);
     }
   }
 
-  // =========================
+  // =====================================================
   // CHARGEMENT
-  // =========================
+  // =====================================================
 
   if (loading) {
     return (
@@ -698,9 +904,9 @@ export default function TeacherDashboard({ session, onLogout }) {
     );
   }
 
-  // =========================
+  // =====================================================
   // AFFICHAGE
-  // =========================
+  // =====================================================
 
   return (
     <main className="page">
@@ -857,9 +1063,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             VIDEOS
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1005,9 +1211,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             LIENS
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1153,9 +1359,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             DOCUMENTS
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1327,6 +1533,14 @@ export default function TeacherDashboard({ session, onLogout }) {
               }
             />
 
+            {file && (
+              <p>
+                📎 Fichier sélectionné :
+                {" "}
+                {file.name}
+              </p>
+            )}
+
             <button
               onClick={publishDocument}
               disabled={uploading}
@@ -1339,9 +1553,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             EXERCICES
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1501,9 +1715,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             EVALUATION
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1630,9 +1844,9 @@ export default function TeacherDashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* =========================
+        {/* =================================================
             MES EXERCICES
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1670,9 +1884,9 @@ export default function TeacherDashboard({ session, onLogout }) {
 
         </div>
 
-        {/* =========================
+        {/* =================================================
             MES PUBLICATIONS
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 
@@ -1691,13 +1905,21 @@ export default function TeacherDashboard({ session, onLogout }) {
                 <div
                   key={document.id}
                   className="stat"
+                  onClick={() =>
+                    openDocument(document)
+                  }
+                  style={{
+                    cursor: "pointer",
+                  }}
                 >
                   <strong>
-                    {document.title}
+                    📄 {document.title}
                   </strong>
 
                   <span>
                     {document.document_type}
+                    {" • "}
+                    Ouvrir le document
                   </span>
                 </div>
               )
@@ -1706,9 +1928,9 @@ export default function TeacherDashboard({ session, onLogout }) {
 
         </div>
 
-        {/* =========================
+        {/* =================================================
             MES EVALUATIONS
-        ========================= */}
+        ================================================= */}
 
         <div className="notice">
 

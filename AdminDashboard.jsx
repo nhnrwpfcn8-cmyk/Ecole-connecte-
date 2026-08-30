@@ -43,6 +43,7 @@ export default function AdminDashboard({ session, onLogout }) {
 
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
+  const [editingParent, setEditingParent] = useState(null);
   const [editingSchool, setEditingSchool] = useState(null);
   const [editingClass, setEditingClass] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
@@ -52,7 +53,17 @@ export default function AdminDashboard({ session, onLogout }) {
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
-
+  
+  const [parentForm, setParentForm] = useState({
+  full_name: "",
+  phone: "",
+  login_identifier: "",
+  password: "",
+  password_confirmation: "",
+  school_id: "",
+  active: true,
+});
+  
   const [teacherForm, setTeacherForm] = useState({
     full_name: "",
     email: "",
@@ -1244,36 +1255,53 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   function startEditStudent(student) {
-    const relation =
-      parentStudents.find(
-        (item) =>
-          String(item.student_id) ===
-          String(student.id)
-      );
+  const relation =
+    parentStudents.find(
+      (item) =>
+        String(item.student_id) ===
+        String(student.id)
+    );
 
-    setEditingStudent(student);
+  setEditingStudent(student);
 
-    setStudentForm({
-      school_id:
-        student.school_id || "",
-      class_id:
-        student.class_id || "",
-      first_name:
-        student.first_name || "",
-      last_name:
-        student.last_name || "",
-      student_code:
-        student.student_code || "",
-      photo_url:
-        student.photo_url || "",
-      active:
-        student.active !== false,
-      parent_id:
-        relation?.parent_id || "",
-      relationship:
-        relation?.relationship ||
-        "Parent",
-    });
+  setStudentForm({
+    school_id:
+      student.school_id || "",
+
+    class_id:
+      student.class_id || "",
+
+    first_name:
+      student.first_name || "",
+
+    last_name:
+      student.last_name || "",
+
+    login_identifier: "",
+
+    password: "",
+
+    password_confirmation: "",
+
+    student_code:
+      student.student_code || "",
+
+    photo_url:
+      student.photo_url || "",
+
+    active:
+      student.active !== false,
+
+    parent_id:
+      relation?.parent_id || "",
+
+    relationship:
+      relation?.relationship ||
+      "Parent",
+  });
+
+  setShowStudentForm(true);
+}
 
     setShowStudentForm(true);
   }
@@ -1644,7 +1672,22 @@ export default function AdminDashboard({ session, onLogout }) {
   // =========================================================
   // RESET
   // =========================================================
+  
+  function resetParentForm() {
+  setParentForm({
+    full_name: "",
+    phone: "",
+    login_identifier: "",
+    password: "",
+    password_confirmation: "",
+    school_id: "",
+    active: true,
+  });
 
+  setEditingParent(null);
+  setShowParentForm(false);
+}
+  
   function resetTeacherForm() {
     setTeacherForm({
       full_name: "",
@@ -2472,23 +2515,7 @@ export default function AdminDashboard({ session, onLogout }) {
             />
 
             <label>
-              URL de la photo
-            </label>
-
-            <input
-              type="text"
-              placeholder="https://..."
-              value={
-                studentForm.photo_url
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  photo_url:
-                    e.target.value,
-                })
-              }
-            />
+   
 
             <label>
               Parent

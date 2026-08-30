@@ -1659,21 +1659,25 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   function resetStudentForm() {
-    setStudentForm({
-      school_id: "",
-      class_id: "",
-      first_name: "",
-      last_name: "",
-      student_code: "",
-      photo_url: "",
-      active: true,
-      parent_id: "",
-      relationship: "Parent",
-    });
+  setStudentForm({
+    school_id: "",
+    class_id: "",
+    first_name: "",
+    last_name: "",
+    login_identifier: "",
+    password: "",
+    password_confirmation: "",
+    student_code: "",
+    photo_url: "",
+    active: true,
+    parent_id: "",
+    relationship: "Parent",
+  });
 
-    setEditingStudent(null);
-    setShowStudentForm(false);
-  }
+  setEditingStudent(null);
+  setShowStudentForm(false);
+}
+
 
   function resetSchoolForm() {
     setSchoolForm({

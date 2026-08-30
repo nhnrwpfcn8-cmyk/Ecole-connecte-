@@ -2496,25 +2496,80 @@ export default function AdminDashboard({ session, onLogout }) {
             />
 
             <label>
-              Code / matricule
-            </label>
+  Code / matricule
+</label>
 
-            <input
-              type="text"
-              placeholder="EC-2026-001"
-              value={
-                studentForm.student_code
-              }
-              onChange={(e) =>
-                setStudentForm({
-                  ...studentForm,
-                  student_code:
-                    e.target.value,
-                })
-              }
-            />
+<input
+  type="text"
+  placeholder="EC-2026-001"
+  value={studentForm.student_code}
+  onChange={(e) =>
+    setStudentForm({
+      ...studentForm,
+      student_code: e.target.value,
+    })
+  }
+/>
 
-            <label>
+<label>
+  Identifiant de connexion
+</label>
+
+<input
+  type="text"
+  placeholder="Ex : amadou.diop"
+  value={studentForm.login_identifier}
+  onChange={(e) =>
+    setStudentForm({
+      ...studentForm,
+      login_identifier: e.target.value,
+    })
+  }
+  disabled={!!editingStudent}
+  required={!editingStudent}
+/>
+
+{!editingStudent && (
+  <>
+    <label>
+      Mot de passe
+    </label>
+
+    <input
+      type="password"
+      placeholder="Minimum 6 caractères"
+      value={studentForm.password}
+      onChange={(e) =>
+        setStudentForm({
+          ...studentForm,
+          password: e.target.value,
+        })
+      }
+      required
+    />
+
+    <label>
+      Confirmation du mot de passe
+    </label>
+
+    <input
+      type="password"
+      placeholder="Retapez le mot de passe"
+      value={studentForm.password_confirmation}
+      onChange={(e) =>
+        setStudentForm({
+          ...studentForm,
+          password_confirmation: e.target.value,
+        })
+      }
+      required
+    />
+  </>
+)}
+
+<label>
+  URL de la photo
+</label>
    
 
             <label>

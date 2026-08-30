@@ -2568,20 +2568,20 @@ export default function AdminDashboard({ session, onLogout }) {
          )}
 
          <label>
-           URL de la photo
-         </label>
-
-             <input
-               type="text"
-               placeholder="https://..."
-               value={studentForm.photo_url}
-               onChange={(e) =>
-                 setStudentForm({
-                   ...studentFormorm({
-                   photo_url: e.target.value,
-                 })
-               }
-             />
+            URL de la photo
+          </label>
+          
+          <input
+            type="text"
+            placeholder="https://..."
+            value={studentForm.photo_url}
+            onChange={(e) =>
+              setStudentForm({
+                ...studentForm,
+                photo_url: e.target.value,
+              })
+            }
+          />
 
             <label>
               Parent

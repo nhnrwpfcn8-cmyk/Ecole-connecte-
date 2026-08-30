@@ -1,10 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "./src/lib/supabase";
 
 export default function AdminDashboard({ session, onLogout }) {
   // =========================================================
   // ÉTATS
   // =========================================================
+
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  const [activeSection, setActiveSection] =
+    useState("dashboard");
 
   const [stats, setStats] = useState({
     teachers: 0,
@@ -15,6 +21,7 @@ export default function AdminDashboard({ session, onLogout }) {
     subjects: 0,
     documents: 0,
     exercises: 0,
+    questions: 0,
     notifications: 0,
   });
 
@@ -29,63 +36,47 @@ export default function AdminDashboard({ session, onLogout }) {
   const [exercises, setExercises] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [teacherClasses, setTeacherClasses] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [activeSection, setActiveSection] = useState("dashboard");
+  // =========================================================
+  // FORMULAIRES
+  // =========================================================
 
-  const [showTeacherForm, setShowTeacherForm] = useState(false);
-  const [showStudentForm, setShowStudentForm] = useState(false);
-  const [showSchoolForm, setShowSchoolForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [showTeacherForm, setShowTeacherForm] =
+    useState(false);
 
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editingParent, setEditingParent] = useState(null);
-  const [editingSchool, setEditingSchool] = useState(null);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editingSubject, setEditingSubject] = useState(null);
+  const [showStudentForm, setShowStudentForm] =
+    useState(false);
 
-  // Attribution professeur
-  const [assignmentTeacher, setAssignmentTeacher] = useState(null);
-  const [selectedClasses, setSelectedClasses] = useState([]);
-  const [selectedSubjects, setSelectedSubjects] = useState([]);
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
-  
-  const [parentForm, setParentForm] = useState({
-  full_name: "",
-  phone: "",
-  login_identifier: "",
-  password: "",
-  password_confirmation: "",
-  school_id: "",
-  active: true,
-});
-  
+  const [showSchoolForm, setShowSchoolForm] =
+    useState(false);
+
+  const [showClassForm, setShowClassForm] =
+    useState(false);
+
+  const [showSubjectForm, setShowSubjectForm] =
+    useState(false);
+
   const [teacherForm, setTeacherForm] = useState({
     full_name: "",
     email: "",
     phone: "",
-    password: "",
     school_id: "",
   });
 
   const [studentForm, setStudentForm] = useState({
-  school_id: "",
-  class_id: "",
-  first_name: "",
-  last_name: "",
-  login_identifier: "",
-  password: "",
-  password_confirmation: "",
-  student_code: "",
-  photo_url: "",
-  active: true,
-  parent_id: "",
-  relationship: "Parent",
-});
+    school_id: "",
+    class_id: "",
+    first_name: "",
+    last_name: "",
+    student_code: "",
+    login_identifier: "",
+    password: "",
+    password_confirmation: "",
+    photo_url: "",
+    active: true,
+    parent_id: "",
+    relationship: "Parent",
+  });
 
   const [schoolForm, setSchoolForm] = useState({
     name: "",
@@ -106,62 +97,47 @@ export default function AdminDashboard({ session, onLogout }) {
   });
 
   // =========================================================
-  // INITIALISATION
+  // MODIFICATION
+  // =========================================================
+
+  const [editingTeacher, setEditingTeacher] =
+    useState(null);
+
+  const [editingStudent, setEditingStudent] =
+    useState(null);
+
+  const [editingSchool, setEditingSchool] =
+    useState(null);
+
+  const [editingClass, setEditingClass] =
+    useState(null);
+
+  const [editingSubject, setEditingSubject] =
+    useState(null);
+
+  // =========================================================
+  // AFFECTATION PROFESSEUR
+  // =========================================================
+
+  const [assignmentTeacher, setAssignmentTeacher] =
+    useState(null);
+
+  const [selectedClasses, setSelectedClasses] =
+    useState([]);
+
+  const [selectedSubjects, setSelectedSubjects] =
+    useState([]);
+
+  const [assignmentLoading, setAssignmentLoading] =
+    useState(false);
+
+  // =========================================================
+  // CHARGEMENT INITIAL
   // =========================================================
 
   useEffect(() => {
     loadData();
   }, []);
-
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
-  function showError(prefix, error) {
-    console.error(prefix, error);
-
-    setMessage(
-      `❌ ${prefix} : ${
-        error?.message || "Erreur inconnue"
-      }`
-    );
-  }
-
-  function formatDate(date) {
-    if (!date) return "Non renseignée";
-
-    try {
-      return new Date(date).toLocaleString("fr-FR");
-    } catch {
-      return String(date);
-    }
-  }
-
-  async function loadProfilesByRole(role) {
-    let result = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, phone, role, school_id, active"
-      )
-      .eq("role", role)
-      .order("full_name");
-
-    // Si la colonne active n'existe pas
-    if (
-      result.error &&
-      result.error.message?.toLowerCase().includes("active")
-    ) {
-      result = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, phone, role, school_id"
-        )
-        .eq("role", role)
-        .order("full_name");
-    }
-
-    return result;
-  }
 
   // =========================================================
   // CHARGEMENT DES DONNÉES
@@ -184,280 +160,218 @@ export default function AdminDashboard({ session, onLogout }) {
         exercisesResult,
         questionsResult,
         notificationsResult,
-        teacherClassesResult,
       ] = await Promise.all([
-        loadProfilesByRole("teacher"),
+        supabase
+          .from("profiles")
+          .select(
+            "id, full_name, phone, role, school_id"
+          )
+          .eq("role", "teacher")
+          .order("full_name"),
 
         supabase
           .from("students")
-          .select(
-            `
-              id,
-              school_id,
-              class_id,
-              first_name,
-              last_name,
-              student_code,
-              photo_url,
-              active,
-              created_at
-            `
-          )
+          .select("*")
           .order("last_name"),
 
-        loadProfilesByRole("parent"),
+        supabase
+          .from("profiles")
+          .select(
+            "id, full_name, phone, role, school_id"
+          )
+          .eq("role", "parent")
+          .order("full_name"),
 
         supabase
           .from("parent_students")
-          .select(
-            `
-              parent_id,
-              student_id,
-              relationship,
-              created_at
-            `
-          ),
+          .select("*"),
 
         supabase
           .from("schools")
           .select(
-            `
-              id,
-              name,
-              address,
-              city,
-              phone,
-              email,
-              created_at
-            `
+            "id, name, address, city, phone, email"
           )
           .order("name"),
 
         supabase
           .from("classes")
           .select(
-            `
-              id,
-              school_id,
-              name,
-              level,
-              created_at
-            `
+            "id, school_id, name, level, created_at"
           )
           .order("name"),
 
         supabase
           .from("subjects")
-          .select(
-            `
-              id,
-              name
-            `
-          )
+          .select("id, name")
           .order("name"),
 
         supabase
           .from("documents")
-          .select(
-            `
-              id,
-              teacher_id,
-              class_id,
-              subject_id,
-              title,
-              description,
-              document_type,
-              file_url,
-              created_at
-            `
-          )
+          .select(`
+            id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            document_type,
+            file_url,
+            created_at
+          `)
           .order("created_at", {
             ascending: false,
           }),
 
         supabase
           .from("exercises")
-          .select(
-            `
-              id,
-              teacher_id,
-              school_id,
-              class_id,
-              subject_id,
-              title,
-              description,
-              instructions,
-              duration_minutes,
-              published,
-              created_at
-            `
-          )
+          .select("*")
           .order("created_at", {
             ascending: false,
           }),
 
         supabase
-          .from("exercise_questions")
-          .select(
-            `
-              id,
-              exercise_id,
-              question,
-              question_type,
-              options,
-              correct_answer,
-              points,
-              position,
-              created_at
-            `
-          )
+          .from("questions")
+          .select("*")
           .order("position"),
 
         supabase
           .from("notifications")
-          .select(
-            `
-              id,
-              recipient_id,
-              student_id,
-              type,
-              title,
-              message,
-              read,
-              created_at
-            `
-          )
+          .select("*")
           .order("created_at", {
             ascending: false,
           }),
-
-        supabase
-          .from("teacher_classes")
-          .select(
-            `
-              id,
-              teacher_id,
-              class_id,
-              subject_id,
-              created_at
-            `
-          ),
       ]);
 
-      // =======================================================
-      // ERREURS PRINCIPALES
-      // =======================================================
+      const results = [
+        teachersResult,
+        studentsResult,
+        parentsResult,
+        parentStudentsResult,
+        schoolsResult,
+        classesResult,
+        subjectsResult,
+        documentsResult,
+        exercisesResult,
+        questionsResult,
+        notificationsResult,
+      ];
 
-      const requiredErrors = [
-        teachersResult.error,
-        studentsResult.error,
-        schoolsResult.error,
-        classesResult.error,
-        subjectsResult.error,
-      ].filter(Boolean);
+      const errors = results
+        .map((result) => result.error)
+        .filter(Boolean);
 
-      if (requiredErrors.length > 0) {
-        throw requiredErrors[0];
+      /*
+       * Certaines tables peuvent ne pas encore exister.
+       * On ne bloque donc pas toute l'administration
+       * pour exercises/questions/notifications.
+       */
+
+      if (
+        teachersResult.error &&
+        !String(
+          teachersResult.error.message
+        ).includes("does not exist")
+      ) {
+        throw teachersResult.error;
       }
 
-      // Modules secondaires
-      if (parentsResult.error) {
-        console.warn(
-          "Parents :",
+      if (
+        studentsResult.error &&
+        !String(
+          studentsResult.error.message
+        ).includes("does not exist")
+      ) {
+        throw studentsResult.error;
+      }
+
+      if (
+        parentsResult.error &&
+        !String(
           parentsResult.error.message
-        );
+        ).includes("does not exist")
+      ) {
+        throw parentsResult.error;
       }
 
-      if (parentStudentsResult.error) {
-        console.warn(
-          "Relations parent/élève :",
-          parentStudentsResult.error.message
-        );
+      if (
+        schoolsResult.error &&
+        !String(
+          schoolsResult.error.message
+        ).includes("does not exist")
+      ) {
+        throw schoolsResult.error;
       }
 
-      if (documentsResult.error) {
-        console.warn(
-          "Documents :",
+      if (
+        classesResult.error &&
+        !String(
+          classesResult.error.message
+        ).includes("does not exist")
+      ) {
+        throw classesResult.error;
+      }
+
+      if (
+        subjectsResult.error &&
+        !String(
+          subjectsResult.error.message
+        ).includes("does not exist")
+      ) {
+        throw subjectsResult.error;
+      }
+
+      if (
+        documentsResult.error &&
+        !String(
           documentsResult.error.message
-        );
+        ).includes("does not exist")
+      ) {
+        throw documentsResult.error;
       }
 
-      if (exercisesResult.error) {
-        console.warn(
-          "Exercices :",
-          exercisesResult.error.message
-        );
-      }
-
-      if (questionsResult.error) {
-        console.warn(
-          "Questions :",
-          questionsResult.error.message
-        );
-      }
-
-      if (notificationsResult.error) {
-        console.warn(
-          "Notifications :",
-          notificationsResult.error.message
-        );
-      }
-
-      if (teacherClassesResult.error) {
-        console.warn(
-          "Affectations professeurs :",
-          teacherClassesResult.error.message
-        );
-      }
-
-      const teacherData = teachersResult.data || [];
-      const studentData = studentsResult.data || [];
-      const parentData = parentsResult.data || [];
-      const parentStudentData =
-        parentStudentsResult.data || [];
-      const schoolData = schoolsResult.data || [];
-      const classData = classesResult.data || [];
-      const subjectData = subjectsResult.data || [];
-      const documentData = documentsResult.data || [];
-      const exerciseData = exercisesResult.data || [];
-      const questionData = questionsResult.data || [];
-      const notificationData =
-        notificationsResult.data || [];
-      const teacherClassData =
-        teacherClassesResult.data || [];
-
-      setTeachers(teacherData);
-      setStudents(studentData);
-      setParents(parentData);
-      setParentStudents(parentStudentData);
-      setSchools(schoolData);
-      setClasses(classData);
-      setSubjects(subjectData);
-      setDocuments(documentData);
-      setExercises(exerciseData);
-      setQuestions(questionData);
-      setNotifications(notificationData);
-      setTeacherClasses(teacherClassData);
-
-      setStats({
-        teachers: teacherData.length,
-        students: studentData.length,
-        parents: parentData.length,
-        schools: schoolData.length,
-        classes: classData.length,
-        subjects: subjectData.length,
-        documents: documentData.length,
-        exercises: exerciseData.length,
-        notifications: notificationData.length,
-      });
-    } catch (error) {
-      console.error(
-        "Erreur chargement administration :",
-        error
+      setTeachers(teachersResult.data || []);
+      setStudents(studentsResult.data || []);
+      setParents(parentsResult.data || []);
+      setParentStudents(
+        parentStudentsResult.data || []
+      );
+      setSchools(schoolsResult.data || []);
+      setClasses(classesResult.data || []);
+      setSubjects(subjectsResult.data || []);
+      setDocuments(documentsResult.data || []);
+      setExercises(exercisesResult.data || []);
+      setQuestions(questionsResult.data || []);
+      setNotifications(
+        notificationsResult.data || []
       );
 
+      setStats({
+        teachers:
+          teachersResult.data?.length || 0,
+        students:
+          studentsResult.data?.length || 0,
+        parents:
+          parentsResult.data?.length || 0,
+        schools:
+          schoolsResult.data?.length || 0,
+        classes:
+          classesResult.data?.length || 0,
+        subjects:
+          subjectsResult.data?.length || 0,
+        documents:
+          documentsResult.data?.length || 0,
+        exercises:
+          exercisesResult.data?.length || 0,
+        questions:
+          questionsResult.data?.length || 0,
+        notifications:
+          notificationsResult.data?.length || 0,
+      });
+    } catch (error) {
+      console.error(error);
+
       setMessage(
-        "❌ Impossible de charger les données : " +
+        "Impossible de charger les données : " +
           (error?.message || "Erreur inconnue")
       );
     } finally {
@@ -466,467 +380,80 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
-  // HELPERS DONNÉES
-  // =========================================================
-
-  function getSchoolName(schoolId) {
-    if (!schoolId) return "École inconnue";
-
-    return (
-      schools.find(
-        (school) =>
-          String(school.id) === String(schoolId)
-      )?.name || "École inconnue"
-    );
-  }
-
-  function getClassName(classId) {
-    if (!classId) return "Classe inconnue";
-
-    return (
-      classes.find(
-        (item) =>
-          String(item.id) === String(classId)
-      )?.name || "Classe inconnue"
-    );
-  }
-
-  function getSubjectName(subjectId) {
-    if (
-      subjectId === null ||
-      subjectId === undefined
-    ) {
-      return "Matière inconnue";
-    }
-
-    return (
-      subjects.find(
-        (item) =>
-          String(item.id) === String(subjectId)
-      )?.name || "Matière inconnue"
-    );
-  }
-
-  function getTeacherName(teacherId) {
-    if (!teacherId) return "Professeur inconnu";
-
-    return (
-      teachers.find(
-        (teacher) =>
-          String(teacher.id) === String(teacherId)
-      )?.full_name || "Professeur inconnu"
-    );
-  }
-
-  function getStudentName(studentId) {
-    const student = students.find(
-      (item) =>
-        String(item.id) === String(studentId)
-    );
-
-    if (!student) return "Élève inconnu";
-
-    return (
-      `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim() || "Élève"
-    );
-  }
-
-  function getParentName(studentId) {
-    const relation = parentStudents.find(
-      (item) =>
-        String(item.student_id) ===
-        String(studentId)
-    );
-
-    if (!relation) {
-      return "Aucun parent associé";
-    }
-
-    return (
-      parents.find(
-        (parent) =>
-          String(parent.id) ===
-          String(relation.parent_id)
-      )?.full_name || "Parent inconnu"
-    );
-  }
-
-  function getParentRelationship(studentId) {
-    return (
-      parentStudents.find(
-        (item) =>
-          String(item.student_id) ===
-          String(studentId)
-      )?.relationship || "Non renseigné"
-    );
-  }
-
-  function getExerciseName(exerciseId) {
-    return (
-      exercises.find(
-        (exercise) =>
-          String(exercise.id) ===
-          String(exerciseId)
-      )?.title || "Exercice inconnu"
-    );
-  }
-
-  // =========================================================
-  // ATTRIBUTIONS PROFESSEURS
-  // =========================================================
-
-  function getTeacherAssignments(teacherId) {
-    return teacherClasses.filter(
-      (item) =>
-        String(item.teacher_id) ===
-        String(teacherId)
-    );
-  }
-
-  function getTeacherClassIds(teacherId) {
-    return [
-      ...new Set(
-        getTeacherAssignments(teacherId)
-          .map((item) => String(item.class_id))
-          .filter(Boolean)
-      ),
-    ];
-  }
-
-  function getTeacherSubjectIds(teacherId) {
-    return [
-      ...new Set(
-        getTeacherAssignments(teacherId)
-          .map((item) => String(item.subject_id))
-          .filter(Boolean)
-      ),
-    ];
-  }
-
-  function getTeacherClassNames(teacherId) {
-    const ids = getTeacherClassIds(teacherId);
-
-    return ids
-      .map((id) => getClassName(id))
-      .filter(
-        (name) => name !== "Classe inconnue"
-      );
-  }
-
-  function getTeacherSubjectNames(teacherId) {
-    const ids = getTeacherSubjectIds(teacherId);
-
-    return ids
-      .map((id) => getSubjectName(id))
-      .filter(
-        (name) => name !== "Matière inconnue"
-      );
-  }
-
-  function openTeacherAssignment(teacher) {
-    const assignments =
-      getTeacherAssignments(teacher.id);
-
-    setAssignmentTeacher(teacher);
-
-    setSelectedClasses(
-      [
-        ...new Set(
-          assignments
-            .map((item) => String(item.class_id))
-            .filter(Boolean)
-        ),
-      ]
-    );
-
-    setSelectedSubjects(
-      [
-        ...new Set(
-          assignments
-            .map((item) => String(item.subject_id))
-            .filter(Boolean)
-        ),
-      ]
-    );
-  }
-
-  function closeTeacherAssignment() {
-    setAssignmentTeacher(null);
-    setSelectedClasses([]);
-    setSelectedSubjects([]);
-  }
-
-  function toggleSelectedClass(classId) {
-    const id = String(classId);
-
-    setSelectedClasses((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
-
-  function toggleSelectedSubject(subjectId) {
-    const id = String(subjectId);
-
-    setSelectedSubjects((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
-
-  async function saveTeacherAssignments() {
-    if (!assignmentTeacher?.id) {
-      setMessage("❌ Professeur introuvable.");
-      return;
-    }
-
-    setAssignmentLoading(true);
-    setMessage("");
-
-    try {
-      // Supprimer les anciennes affectations
-      const { error: deleteError } =
-        await supabase
-          .from("teacher_classes")
-          .delete()
-          .eq(
-            "teacher_id",
-            assignmentTeacher.id
-          );
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      const rows = [];
-
-      for (const classId of selectedClasses) {
-        // Si aucune matière n'est sélectionnée,
-        // on crée l'affectation de classe seule.
-        if (selectedSubjects.length === 0) {
-          rows.push({
-            teacher_id: assignmentTeacher.id,
-            class_id: classId,
-            subject_id: null,
-          });
-        } else {
-          for (const subjectId of selectedSubjects) {
-            rows.push({
-              teacher_id: assignmentTeacher.id,
-              class_id: classId,
-              subject_id: Number(subjectId),
-            });
-          }
-        }
-      }
-
-      if (rows.length > 0) {
-        const { error: insertError } =
-          await supabase
-            .from("teacher_classes")
-            .insert(rows);
-
-        if (insertError) {
-          throw insertError;
-        }
-      }
-
-      setMessage(
-        "✅ Classes et matières du professeur mises à jour."
-      );
-
-      closeTeacherAssignment();
-
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur attribution professeur",
-        error
-      );
-    } finally {
-      setAssignmentLoading(false);
-    }
-  }
-
-  // =========================================================
   // PROFESSEURS
   // =========================================================
 
-  async function createTeacher(e) {
+  async function saveTeacher(e) {
     e.preventDefault();
     setMessage("");
 
-    const fullName =
-      teacherForm.full_name.trim();
-
-    const email =
-      teacherForm.email.trim();
-
-    const password =
-      teacherForm.password;
-
-    if (!fullName) {
+    if (!teacherForm.full_name.trim()) {
       setMessage(
         "Veuillez saisir le nom du professeur."
       );
       return;
     }
 
-    if (!email) {
-      setMessage(
-        "Veuillez saisir l'adresse e-mail."
-      );
-      return;
-    }
-
-    if (!password) {
-      setMessage(
-        "Veuillez saisir un mot de passe."
-      );
-      return;
-    }
-
-    if (password.length < 6) {
-      setMessage(
-        "Le mot de passe doit contenir au moins 6 caractères."
-      );
-      return;
-    }
-
-    if (!teacherForm.school_id) {
-      setMessage(
-        "Veuillez sélectionner une école."
-      );
-      return;
-    }
-
     try {
-      const { data, error } =
-        await supabase.functions.invoke(
-          "create-user",
-          {
-            body: {
-              full_name: fullName,
-              email,
-              phone:
-                teacherForm.phone.trim() ||
-                null,
-              password,
-              role: "teacher",
-              school_id:
-                teacherForm.school_id,
-            },
-          }
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data?.success) {
-        throw new Error(
-          data?.error ||
-            "Impossible de créer le professeur."
-        );
-      }
-
-      setMessage(
-        "✅ Professeur créé avec succès."
-      );
-
-      resetTeacherForm();
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur création professeur",
-        error
-      );
-    }
-  }
-
-  async function updateTeacher(e) {
-    e.preventDefault();
-    setMessage("");
-
-    if (!editingTeacher?.id) {
-      setMessage(
-        "Professeur introuvable."
-      );
-      return;
-    }
-
-    try {
-      const values = {
-        full_name:
-          teacherForm.full_name.trim(),
-        phone:
-          teacherForm.phone.trim() ||
-          null,
-        school_id:
-          teacherForm.school_id || null,
-      };
-
-      const { error } =
-        await supabase
-          .from("profiles")
-          .update(values)
-          .eq(
-            "id",
-            editingTeacher.id
-          );
-
-      if (error) {
-        throw error;
-      }
-
-      setMessage(
-        "✅ Professeur modifié avec succès."
-      );
-
-      resetTeacherForm();
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur modification professeur",
-        error
-      );
-    }
-  }
-
-  async function toggleTeacher(teacher) {
-    setMessage("");
-
-    const newActive =
-      teacher.active === false;
-
-    try {
-      const { error } =
-        await supabase
+      if (editingTeacher) {
+        const { error } = await supabase
           .from("profiles")
           .update({
-            active: newActive,
+            full_name:
+              teacherForm.full_name.trim(),
+            phone:
+              teacherForm.phone.trim() || null,
+            school_id:
+              teacherForm.school_id || null,
           })
-          .eq("id", teacher.id);
+          .eq("id", editingTeacher.id);
 
-      if (error) {
-        throw error;
+        if (error) throw error;
+
+        setMessage(
+          "Professeur modifié avec succès."
+        );
+      } else {
+        const { data, error } =
+          await supabase.functions.invoke(
+            "create-user",
+            {
+              body: {
+                full_name:
+                  teacherForm.full_name.trim(),
+                email:
+                  teacherForm.email.trim(),
+                phone:
+                  teacherForm.phone.trim(),
+                school_id:
+                  teacherForm.school_id || null,
+                role: "teacher",
+              },
+            }
+          );
+
+        if (error) throw error;
+
+        if (!data?.success) {
+          throw new Error(
+            data?.error ||
+              "Impossible de créer le professeur."
+          );
+        }
+
+        setMessage(
+          "Professeur créé avec succès."
+        );
       }
 
-      setMessage(
-        newActive
-          ? "✅ Professeur réactivé."
-          : "🚫 Professeur désactivé."
-      );
-
+      resetTeacherForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur statut professeur",
-        error
+      console.error(error);
+
+      setMessage(
+        "Erreur professeur : " +
+          (error?.message || "Erreur inconnue")
       );
     }
   }
@@ -940,7 +467,6 @@ export default function AdminDashboard({ session, onLogout }) {
       email: "",
       phone:
         teacher.phone || "",
-      password: "",
       school_id:
         teacher.school_id || "",
     });
@@ -948,362 +474,526 @@ export default function AdminDashboard({ session, onLogout }) {
     setShowTeacherForm(true);
   }
 
-  // =========================================================
-  // ÉLÈVES
-  // =========================================================
+  function resetTeacherForm() {
+    setEditingTeacher(null);
 
-  async function saveStudent(e) {
-  e.preventDefault();
-  setMessage("");
+    setTeacherForm({
+      full_name: "",
+      email: "",
+      phone: "",
+      school_id: "",
+    });
 
-  if (!studentForm.school_id) {
-    setMessage("Veuillez choisir une école.");
-    return;
+    setShowTeacherForm(false);
   }
 
-  if (!studentForm.class_id) {
-    setMessage("Veuillez choisir une classe.");
-    return;
-  }
-
-  if (!studentForm.first_name.trim()) {
-    setMessage("Veuillez saisir le prénom.");
-    return;
-  }
-
-  if (!studentForm.last_name.trim()) {
-    setMessage("Veuillez saisir le nom.");
-    return;
-  }
-
-  // =====================================================
-  // MODIFICATION D'UN ÉLÈVE EXISTANT
-  // =====================================================
-
-  if (editingStudent) {
-    try {
-      const values = {
-        school_id: studentForm.school_id,
-        class_id: studentForm.class_id || null,
-        first_name: studentForm.first_name.trim(),
-        last_name: studentForm.last_name.trim(),
-        student_code:
-          studentForm.student_code.trim() || null,
-        photo_url:
-          studentForm.photo_url.trim() || null,
-        active: studentForm.active !== false,
-      };
-
-      const { error } = await supabase
-        .from("students")
-        .update(values)
-        .eq("id", editingStudent.id);
-
-      if (error) {
-        throw error;
-      }
-
-      // Mettre à jour le parent
-      const { error: deleteRelationError } =
-        await supabase
-          .from("parent_students")
-          .delete()
-          .eq("student_id", editingStudent.id);
-
-      if (deleteRelationError) {
-        throw deleteRelationError;
-      }
-
-      if (studentForm.parent_id) {
-        const { error: parentError } =
-          await supabase
-            .from("parent_students")
-            .insert([
-              {
-                parent_id: studentForm.parent_id,
-                student_id: editingStudent.id,
-                relationship:
-                  studentForm.relationship || "Parent",
-              },
-            ]);
-
-        if (parentError) {
-          throw parentError;
-        }
-      }
-
-      setMessage(
-        "✅ Élève modifié avec succès."
-      );
-
-      resetStudentForm();
-      await loadData();
-    } catch (error) {
-      showError("Erreur modification élève", error);
-    }
-
-    return;
-  }
-
-  // =====================================================
-  // CRÉATION D'UN NOUVEL ÉLÈVE
-  // =====================================================
-
-  if (!studentForm.login_identifier.trim()) {
-    setMessage(
-      "Veuillez saisir l'identifiant de connexion."
-    );
-    return;
-  }
-
-  if (studentForm.password.length < 6) {
-    setMessage(
-      "Le mot de passe doit contenir au moins 6 caractères."
-    );
-    return;
-  }
-
-  if (
-    studentForm.password !==
-    studentForm.password_confirmation
-  ) {
-    setMessage(
-      "Les deux mots de passe ne correspondent pas."
-    );
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const { data, error } =
-      await supabase.functions.invoke(
-        "create-user",
-        {
-          body: {
-            role: "student",
-
-            first_name:
-              studentForm.first_name.trim(),
-
-            last_name:
-              studentForm.last_name.trim(),
-
-            school_id:
-              studentForm.school_id,
-
-            class_id:
-              studentForm.class_id,
-
-            student_code:
-              studentForm.student_code.trim() ||
-              null,
-
-            photo_url:
-              studentForm.photo_url.trim() ||
-              null,
-
-            login_identifier:
-              studentForm.login_identifier.trim(),
-
-            password:
-              studentForm.password,
-          },
-        }
-      );
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data?.success) {
-      throw new Error(
-        data?.error ||
-          "Impossible de créer l'élève."
-      );
-    }
-
-    // ===================================================
-    // AJOUT DU PARENT
-    // ===================================================
-
-    if (
-      data.student_id &&
-      studentForm.parent_id
-    ) {
-      const { error: parentError } =
-        await supabase
-          .from("parent_students")
-          .insert([
-            {
-              parent_id:
-                studentForm.parent_id,
-
-              student_id:
-                data.student_id,
-
-              relationship:
-                studentForm.relationship ||
-                "Parent",
-            },
-          ]);
-
-      if (parentError) {
-        throw parentError;
-      }
-    }
-
-    setMessage(
-      `✅ Élève créé avec succès ! Identifiant : ${data.login_identifier}`
-    );
-
-    resetStudentForm();
-
-    await loadData();
-  } catch (error) {
-    showError(
-      "Erreur création élève",
-      error
-    );
-  } finally {
-    setLoading(false);
-  }
-}
-
-  async function toggleStudent(student) {
+  async function toggleTeacher(teacher) {
     setMessage("");
 
-    const newActive =
-      student.active === false;
-
     try {
-      const { error } =
-        await supabase
-          .from("students")
-          .update({
-            active: newActive,
-          })
-          .eq(
-            "id",
-            student.id
-          );
+      /*
+       * On utilise active si la colonne existe.
+       * Sinon on ne modifie pas le rôle.
+       */
+      const newActive =
+        teacher.active === false;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          active: newActive,
+        })
+        .eq("id", teacher.id);
 
       if (error) {
+        /*
+         * Si active n'existe pas, on informe
+         * sans casser le profil.
+         */
         throw error;
       }
 
       setMessage(
         newActive
-          ? "✅ Élève réactivé."
-          : "🚫 Élève désactivé."
+          ? "Professeur réactivé."
+          : "Professeur désactivé."
       );
 
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur statut élève",
-        error
+      setMessage(
+        "Erreur changement de statut professeur : " +
+          (error?.message || "Erreur")
       );
     }
   }
 
-  async function deleteStudent(student) {
-    if (
-      !window.confirm(
-        `Voulez-vous vraiment supprimer ${student.first_name} ${student.last_name} ?`
+  // =========================================================
+  // AFFECTATION PROFESSEUR
+  // =========================================================
+
+  function getTeacherClassNames(teacherId) {
+    return classes
+      .filter((classItem) =>
+        teacherClasses.some(
+          (relation) =>
+            String(relation.teacher_id) ===
+              String(teacherId) &&
+            String(relation.class_id) ===
+              String(classItem.id)
+        )
       )
-    ) {
+      .map((item) => item.name);
+  }
+
+  const [teacherClasses, setTeacherClasses] =
+    useState([]);
+
+  async function loadTeacherAssignments() {
+    const { data, error } = await supabase
+      .from("teacher_classes")
+      .select("*");
+
+    if (!error) {
+      setTeacherClasses(data || []);
+    }
+  }
+
+  async function openTeacherAssignment(teacher) {
+    setAssignmentTeacher(teacher);
+
+    setAssignmentLoading(true);
+
+    try {
+      const { data: relations, error } =
+        await supabase
+          .from("teacher_classes")
+          .select("*")
+          .eq("teacher_id", teacher.id);
+
+      if (error) throw error;
+
+      setTeacherClasses((current) => {
+        const withoutTeacher = current.filter(
+          (item) =>
+            String(item.teacher_id) !==
+            String(teacher.id)
+        );
+
+        return [
+          ...withoutTeacher,
+          ...(relations || []),
+        ];
+      });
+
+      setSelectedClasses(
+        (relations || []).map((item) =>
+          String(item.class_id)
+        )
+      );
+
+      setSelectedSubjects([]);
+    } catch (error) {
+      console.error(error);
+
+      setSelectedClasses([]);
+
+      setMessage(
+        "Impossible de charger les affectations : " +
+          (error?.message || "Erreur")
+      );
+    } finally {
+      setAssignmentLoading(false);
+    }
+  }
+
+  function toggleSelectedClass(classId) {
+    const id = String(classId);
+
+    setSelectedClasses((current) =>
+      current.includes(id)
+        ? current.filter(
+            (item) => item !== id
+          )
+        : [...current, id]
+    );
+  }
+
+  function toggleSelectedSubject(subjectId) {
+    const id = String(subjectId);
+
+    setSelectedSubjects((current) =>
+      current.includes(id)
+        ? current.filter(
+            (item) => item !== id
+          )
+        : [...current, id]
+    );
+  }
+
+  async function saveTeacherAssignments() {
+    if (!assignmentTeacher) return;
+
+    setAssignmentLoading(true);
+    setMessage("");
+
+    try {
+      const { error: deleteError } =
+        await supabase
+          .from("teacher_classes")
+          .delete()
+          .eq(
+            "teacher_id",
+            assignmentTeacher.id
+          );
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      if (selectedClasses.length > 0) {
+        const rows = selectedClasses.map(
+          (classId) => ({
+            teacher_id:
+              assignmentTeacher.id,
+            class_id: classId,
+          })
+        );
+
+        const { error: insertError } =
+          await supabase
+            .from("teacher_classes")
+            .insert(rows);
+
+        if (insertError) {
+          throw insertError;
+        }
+      }
+
+      setMessage(
+        "Affectations enregistrées avec succès."
+      );
+
+      await loadTeacherAssignments();
+
+      setAssignmentTeacher(null);
+      setSelectedClasses([]);
+      setSelectedSubjects([]);
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        "Erreur affectation : " +
+          (error?.message || "Erreur")
+      );
+    } finally {
+      setAssignmentLoading(false);
+    }
+  }
+
+  function closeTeacherAssignment() {
+    setAssignmentTeacher(null);
+    setSelectedClasses([]);
+    setSelectedSubjects([]);
+  }
+
+  // =========================================================
+  // ÉLÈVES
+  // =========================================================
+
+  async function saveStudent(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!studentForm.school_id) {
+      setMessage(
+        "Veuillez choisir une école."
+      );
+      return;
+    }
+
+    if (!studentForm.first_name.trim()) {
+      setMessage(
+        "Veuillez saisir le prénom."
+      );
+      return;
+    }
+
+    if (!studentForm.last_name.trim()) {
+      setMessage(
+        "Veuillez saisir le nom."
+      );
       return;
     }
 
     try {
-      const {
-        error: relationError,
-      } = await supabase
-        .from("parent_students")
-        .delete()
-        .eq(
-          "student_id",
-          student.id
-        );
-
-      if (relationError) {
-        throw relationError;
-      }
-
-      const { error } =
-        await supabase
+      if (editingStudent) {
+        const { error } = await supabase
           .from("students")
-          .delete()
-          .eq("id", student.id);
+          .update({
+            school_id:
+              studentForm.school_id,
+            class_id:
+              studentForm.class_id || null,
+            first_name:
+              studentForm.first_name.trim(),
+            last_name:
+              studentForm.last_name.trim(),
+            student_code:
+              studentForm.student_code.trim() ||
+              null,
+            photo_url:
+              studentForm.photo_url.trim() ||
+              null,
+            active:
+              studentForm.active,
+          })
+          .eq("id", editingStudent.id);
 
-      if (error) {
-        throw error;
+        if (error) throw error;
+
+        setMessage(
+          "Élève modifié avec succès."
+        );
+      } else {
+        if (
+          studentForm.password !==
+          studentForm.password_confirmation
+        ) {
+          setMessage(
+            "Les deux mots de passe ne correspondent pas."
+          );
+          return;
+        }
+
+        if (
+          studentForm.password.length < 6
+        ) {
+          setMessage(
+            "Le mot de passe doit contenir au moins 6 caractères."
+          );
+          return;
+        }
+
+        /*
+         * Création du compte élève via
+         * la fonction create-user.
+         */
+        const { data, error } =
+          await supabase.functions.invoke(
+            "create-user",
+            {
+              body: {
+                full_name:
+                  `${studentForm.first_name.trim()} ${studentForm.last_name.trim()}`,
+                login_identifier:
+                  studentForm.login_identifier.trim(),
+                password:
+                  studentForm.password,
+                role: "student",
+                school_id:
+                  studentForm.school_id,
+              },
+            }
+          );
+
+        if (error) throw error;
+
+        if (!data?.success) {
+          throw new Error(
+            data?.error ||
+              "Impossible de créer le compte élève."
+          );
+        }
+
+        /*
+         * Création de la fiche élève.
+         */
+        const { data: createdStudent, error: studentError } =
+          await supabase
+            .from("students")
+            .insert([
+              {
+                school_id:
+                  studentForm.school_id,
+                class_id:
+                  studentForm.class_id || null,
+                first_name:
+                  studentForm.first_name.trim(),
+                last_name:
+                  studentForm.last_name.trim(),
+                student_code:
+                  studentForm.student_code.trim() ||
+                  null,
+                photo_url:
+                  studentForm.photo_url.trim() ||
+                  null,
+                active:
+                  studentForm.active,
+              },
+            ])
+            .select()
+            .single();
+
+        if (studentError) {
+          throw studentError;
+        }
+
+        /*
+         * Association parent / élève.
+         */
+        if (
+          studentForm.parent_id &&
+          createdStudent?.id
+        ) {
+          const { error: relationError } =
+            await supabase
+              .from("parent_students")
+              .insert([
+                {
+                  parent_id:
+                    studentForm.parent_id,
+                  student_id:
+                    createdStudent.id,
+                  relationship:
+                    studentForm.relationship,
+                },
+              ]);
+
+          if (relationError) {
+            throw relationError;
+          }
+        }
+
+        setMessage(
+          "Élève créé avec succès."
+        );
       }
 
-      setMessage(
-        "✅ Élève supprimé avec succès."
-      );
-
+      resetStudentForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur suppression élève",
-        error
+      console.error(error);
+
+      setMessage(
+        "Erreur élève : " +
+          (error?.message || "Erreur inconnue")
       );
     }
   }
 
   function startEditStudent(student) {
-  const relation =
-    parentStudents.find(
-      (item) =>
-        String(item.student_id) ===
-        String(student.id)
-    );
+    const relation =
+      parentStudents.find(
+        (item) =>
+          String(item.student_id) ===
+          String(student.id)
+      );
 
-  setEditingStudent(student);
+    setEditingStudent(student);
 
-  setStudentForm({
-    school_id:
-      student.school_id || "",
-
-    class_id:
-      student.class_id || "",
-
-    first_name:
-      student.first_name || "",
-
-    last_name:
-      student.last_name || "",
-
-    login_identifier: "",
-
-    password: "",
-
-    password_confirmation: "",
-
-    student_code:
-      student.student_code || "",
-
-    photo_url:
-      student.photo_url || "",
-
-    active:
-      student.active !== false,
-
-    parent_id:
-      relation?.parent_id || "",
-
-    relationship:
-      relation?.relationship ||
-      "Parent",
-  });
-
-  setShowStudentForm(true);
-}
+    setStudentForm({
+      school_id:
+        student.school_id || "",
+      class_id:
+        student.class_id || "",
+      first_name:
+        student.first_name || "",
+      last_name:
+        student.last_name || "",
+      student_code:
+        student.student_code || "",
+      login_identifier:
+        student.login_identifier || "",
+      password: "",
+      password_confirmation: "",
+      photo_url:
+        student.photo_url || "",
+      active:
+        student.active !== false,
+      parent_id:
+        relation?.parent_id || "",
+      relationship:
+        relation?.relationship || "Parent",
+    });
 
     setShowStudentForm(true);
+  }
+
+  function resetStudentForm() {
+    setEditingStudent(null);
+
+    setStudentForm({
+      school_id: "",
+      class_id: "",
+      first_name: "",
+      last_name: "",
+      student_code: "",
+      login_identifier: "",
+      password: "",
+      password_confirmation: "",
+      photo_url: "",
+      active: true,
+      parent_id: "",
+      relationship: "Parent",
+    });
+
+    setShowStudentForm(false);
+  }
+
+  async function toggleStudent(student) {
+    setMessage("");
+
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({
+          active:
+            student.active === false,
+        })
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      setMessage(
+        student.active === false
+          ? "Élève réactivé."
+          : "Élève désactivé."
+      );
+
+      await loadData();
+    } catch (error) {
+      setMessage(
+        "Erreur statut élève : " +
+          error.message
+      );
+    }
+  }
+
+  async function deleteStudent(student) {
+    const confirmed = window.confirm(
+      `Voulez-vous vraiment supprimer ${student.first_name} ${student.last_name} ?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      setMessage("Élève supprimé.");
+
+      await loadData();
+    } catch (error) {
+      setMessage(
+        "Erreur suppression élève : " +
+          error.message
+      );
+    }
   }
 
   // =========================================================
@@ -1314,104 +1004,36 @@ export default function AdminDashboard({ session, onLogout }) {
     e.preventDefault();
     setMessage("");
 
-    const name =
-      schoolForm.name.trim();
-
-    if (!name) {
-      setMessage(
-        "Veuillez saisir le nom de l'école."
-      );
-      return;
-    }
-
     try {
-      const values = {
-        name,
-        address:
-          schoolForm.address.trim() ||
-          null,
-        city:
-          schoolForm.city.trim() ||
-          null,
-        phone:
-          schoolForm.phone.trim() ||
-          null,
-        email:
-          schoolForm.email.trim() ||
-          null,
-      };
-
       if (editingSchool) {
-        const { error } =
-          await supabase
-            .from("schools")
-            .update(values)
-            .eq(
-              "id",
-              editingSchool.id
-            );
+        const { error } = await supabase
+          .from("schools")
+          .update(schoolForm)
+          .eq("id", editingSchool.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ École modifiée avec succès."
+          "École modifiée avec succès."
         );
       } else {
-        const { error } =
-          await supabase
-            .from("schools")
-            .insert([values]);
+        const { error } = await supabase
+          .from("schools")
+          .insert([schoolForm]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ École créée avec succès."
+          "École créée avec succès."
         );
       }
 
       resetSchoolForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur école",
-        error
-      );
-    }
-  }
-
-  async function deleteSchool(school) {
-    if (
-      !window.confirm(
-        `Supprimer l'école "${school.name}" ?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } =
-        await supabase
-          .from("schools")
-          .delete()
-          .eq("id", school.id);
-
-      if (error) {
-        throw error;
-      }
-
       setMessage(
-        "✅ École supprimée."
-      );
-
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur suppression école",
-        error
+        "Erreur école : " +
+          error.message
       );
     }
   }
@@ -1420,8 +1042,7 @@ export default function AdminDashboard({ session, onLogout }) {
     setEditingSchool(school);
 
     setSchoolForm({
-      name:
-        school.name || "",
+      name: school.name || "",
       address:
         school.address || "",
       city:
@@ -1433,6 +1054,46 @@ export default function AdminDashboard({ session, onLogout }) {
     });
 
     setShowSchoolForm(true);
+  }
+
+  function resetSchoolForm() {
+    setEditingSchool(null);
+
+    setSchoolForm({
+      name: "",
+      address: "",
+      city: "",
+      phone: "",
+      email: "",
+    });
+
+    setShowSchoolForm(false);
+  }
+
+  async function deleteSchool(school) {
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer cette école ?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("schools")
+        .delete()
+        .eq("id", school.id);
+
+      if (error) throw error;
+
+      setMessage("École supprimée.");
+
+      await loadData();
+    } catch (error) {
+      setMessage(
+        "Erreur suppression école : " +
+          error.message
+      );
+    }
   }
 
   // =========================================================
@@ -1458,90 +1119,53 @@ export default function AdminDashboard({ session, onLogout }) {
     }
 
     try {
-      const values = {
-        school_id:
-          classForm.school_id,
-        name:
-          classForm.name.trim(),
-        level:
-          classForm.level.trim() ||
-          null,
-      };
-
       if (editingClass) {
-        const { error } =
-          await supabase
-            .from("classes")
-            .update(values)
-            .eq(
-              "id",
-              editingClass.id
-            );
+        const { error } = await supabase
+          .from("classes")
+          .update({
+            school_id:
+              classForm.school_id,
+            name:
+              classForm.name.trim(),
+            level:
+              classForm.level.trim() ||
+              null,
+          })
+          .eq("id", editingClass.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ Classe modifiée avec succès."
+          "Classe modifiée avec succès."
         );
       } else {
-        const { error } =
-          await supabase
-            .from("classes")
-            .insert([values]);
+        const { error } = await supabase
+          .from("classes")
+          .insert([
+            {
+              school_id:
+                classForm.school_id,
+              name:
+                classForm.name.trim(),
+              level:
+                classForm.level.trim() ||
+                null,
+            },
+          ]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ Classe créée avec succès."
+          "Classe créée avec succès."
         );
       }
 
       resetClassForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur classe",
-        error
-      );
-    }
-  }
-
-  async function deleteClass(classItem) {
-    if (
-      !window.confirm(
-        `Supprimer la classe "${classItem.name}" ?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } =
-        await supabase
-          .from("classes")
-          .delete()
-          .eq(
-            "id",
-            classItem.id
-          );
-
-      if (error) {
-        throw error;
-      }
-
       setMessage(
-        "✅ Classe supprimée."
-      );
-
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur suppression classe",
-        error
+        "Erreur classe : " +
+          error.message
       );
     }
   }
@@ -1559,6 +1183,44 @@ export default function AdminDashboard({ session, onLogout }) {
     });
 
     setShowClassForm(true);
+  }
+
+  function resetClassForm() {
+    setEditingClass(null);
+
+    setClassForm({
+      school_id: "",
+      name: "",
+      level: "",
+    });
+
+    setShowClassForm(false);
+  }
+
+  async function deleteClass(classItem) {
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer cette classe ?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("classes")
+        .delete()
+        .eq("id", classItem.id);
+
+      if (error) throw error;
+
+      setMessage("Classe supprimée.");
+
+      await loadData();
+    } catch (error) {
+      setMessage(
+        "Erreur suppression classe : " +
+          error.message
+      );
+    }
   }
 
   // =========================================================
@@ -1581,79 +1243,37 @@ export default function AdminDashboard({ session, onLogout }) {
 
     try {
       if (editingSubject) {
-        const { error } =
-          await supabase
-            .from("subjects")
-            .update({ name })
-            .eq(
-              "id",
-              editingSubject.id
-            );
+        const { error } = await supabase
+          .from("subjects")
+          .update({ name })
+          .eq(
+            "id",
+            editingSubject.id
+          );
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ Matière modifiée avec succès."
+          "Matière modifiée avec succès."
         );
       } else {
-        const { error } =
-          await supabase
-            .from("subjects")
-            .insert([{ name }]);
+        const { error } = await supabase
+          .from("subjects")
+          .insert([{ name }]);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         setMessage(
-          "✅ Matière créée avec succès."
+          "Matière créée avec succès."
         );
       }
 
       resetSubjectForm();
       await loadData();
     } catch (error) {
-      showError(
-        "Erreur matière",
-        error
-      );
-    }
-  }
-
-  async function deleteSubject(subject) {
-    if (
-      !window.confirm(
-        `Supprimer la matière "${subject.name}" ?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const { error } =
-        await supabase
-          .from("subjects")
-          .delete()
-          .eq(
-            "id",
-            subject.id
-          );
-
-      if (error) {
-        throw error;
-      }
-
       setMessage(
-        "✅ Matière supprimée."
-      );
-
-      await loadData();
-    } catch (error) {
-      showError(
-        "Erreur suppression matière",
-        error
+        "Erreur matière : " +
+          error.message
       );
     }
   }
@@ -1662,117 +1282,193 @@ export default function AdminDashboard({ session, onLogout }) {
     setEditingSubject(subject);
 
     setSubjectForm({
-      name:
-        subject.name || "",
+      name: subject.name || "",
     });
 
     setShowSubjectForm(true);
   }
 
-  // =========================================================
-  // RESET
-  // =========================================================
-  
-  function resetParentForm() {
-  setParentForm({
-    full_name: "",
-    phone: "",
-    login_identifier: "",
-    password: "",
-    password_confirmation: "",
-    school_id: "",
-    active: true,
-  });
-
-  setEditingParent(null);
-  setShowParentForm(false);
-}
-  
-  function resetTeacherForm() {
-    setTeacherForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      password: "",
-      school_id: "",
-    });
-
-    setEditingTeacher(null);
-    setShowTeacherForm(false);
-  }
-
-  function resetStudentForm() {
-  setStudentForm({
-    school_id: "",
-    class_id: "",
-    first_name: "",
-    last_name: "",
-    login_identifier: "",
-    password: "",
-    password_confirmation: "",
-    student_code: "",
-    photo_url: "",
-    active: true,
-    parent_id: "",
-    relationship: "Parent",
-  });
-
-  setEditingStudent(null);
-  setShowStudentForm(false);
-}
-
-
-  function resetSchoolForm() {
-    setSchoolForm({
-      name: "",
-      address: "",
-      city: "",
-      phone: "",
-      email: "",
-    });
-
-    setEditingSchool(null);
-    setShowSchoolForm(false);
-  }
-
-  function resetClassForm() {
-    setClassForm({
-      school_id: "",
-      name: "",
-      level: "",
-    });
-
-    setEditingClass(null);
-    setShowClassForm(false);
-  }
-
   function resetSubjectForm() {
+    setEditingSubject(null);
+
     setSubjectForm({
       name: "",
     });
 
-    setEditingSubject(null);
     setShowSubjectForm(false);
   }
 
+  async function deleteSubject(subject) {
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer cette matière ?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("subjects")
+        .delete()
+        .eq("id", subject.id);
+
+      if (error) throw error;
+
+      setMessage(
+        "Matière supprimée."
+      );
+
+      await loadData();
+    } catch (error) {
+      setMessage(
+        "Erreur suppression matière : " +
+          error.message
+      );
+    }
+  }
+
   // =========================================================
-  // CLASSES DISPONIBLES POUR L'ÉLÈVE
+  // UTILITAIRES
   // =========================================================
 
-  const availableClasses = useMemo(() => {
-    if (!studentForm.school_id) {
-      return [];
+  function getSchoolName(schoolId) {
+    const school = schools.find(
+      (item) =>
+        String(item.id) ===
+        String(schoolId)
+    );
+
+    return (
+      school?.name ||
+      "École inconnue"
+    );
+  }
+
+  function getTeacherName(teacherId) {
+    const teacher = teachers.find(
+      (item) =>
+        String(item.id) ===
+        String(teacherId)
+    );
+
+    return (
+      teacher?.full_name ||
+      "Professeur inconnu"
+    );
+  }
+
+  function getClassName(classId) {
+    const classItem = classes.find(
+      (item) =>
+        String(item.id) ===
+        String(classId)
+    );
+
+    return (
+      classItem?.name ||
+      "Classe inconnue"
+    );
+  }
+
+  function getSubjectName(subjectId) {
+    const subject = subjects.find(
+      (item) =>
+        Number(item.id) ===
+        Number(subjectId)
+    );
+
+    return (
+      subject?.name ||
+      "Matière inconnue"
+    );
+  }
+
+  function getStudentName(studentId) {
+    const student = students.find(
+      (item) =>
+        String(item.id) ===
+        String(studentId)
+    );
+
+    if (!student) {
+      return "Élève inconnu";
     }
 
-    return classes.filter(
+    return `${student.first_name || ""} ${
+      student.last_name || ""
+    }`.trim();
+  }
+
+  function getParentName(studentId) {
+    const relation =
+      parentStudents.find(
+        (item) =>
+          String(item.student_id) ===
+          String(studentId)
+      );
+
+    if (!relation) {
+      return "Aucun parent";
+    }
+
+    const parent = parents.find(
       (item) =>
-        String(item.school_id) ===
-        String(studentForm.school_id)
+        String(item.id) ===
+        String(relation.parent_id)
     );
-  }, [
-    classes,
-    studentForm.school_id,
-  ]);
+
+    return (
+      parent?.full_name ||
+      "Parent inconnu"
+    );
+  }
+
+  function getParentRelationship(
+    studentId
+  ) {
+    const relation =
+      parentStudents.find(
+        (item) =>
+          String(item.student_id) ===
+          String(studentId)
+      );
+
+    return (
+      relation?.relationship ||
+      "Parent"
+    );
+  }
+
+  function getExerciseName(exerciseId) {
+    const exercise = exercises.find(
+      (item) =>
+        String(item.id) ===
+        String(exerciseId)
+    );
+
+    return (
+      exercise?.title ||
+      "Exercice inconnu"
+    );
+  }
+
+  function formatDate(date) {
+    if (!date) {
+      return "Date inconnue";
+    }
+
+    return new Date(date).toLocaleDateString(
+      "fr-FR"
+    );
+  }
+
+  const availableClasses =
+    studentForm.school_id
+      ? classes.filter(
+          (item) =>
+            String(item.school_id) ===
+            String(studentForm.school_id)
+        )
+      : [];
 
   // =========================================================
   // NAVIGATION
@@ -1780,107 +1476,222 @@ export default function AdminDashboard({ session, onLogout }) {
 
   function openSection(section) {
     setActiveSection(section);
-    setMessage("");
   }
 
   function renderNavigation() {
-    const items = [
-      ["dashboard", "📊 Tableau de bord"],
-      ["teachers", "👨‍🏫 Professeurs"],
-      ["students", "👨‍🎓 Élèves"],
-      ["parents", "👪 Parents"],
-      ["schools", "🏫 Écoles"],
-      ["classes", "📚 Classes"],
-      ["subjects", "📖 Matières"],
-      ["documents", "📄 Documents"],
-      ["exercises", "📝 Exercices"],
-      ["questions", "❓ Questions"],
-      ["notifications", "🔔 Notifications"],
-    ];
-
     return (
       <div className="notice">
-        <h2>🛠️ Administration</h2>
+        <h2>🧭 Administration</h2>
 
         <div className="grid">
-          {items.map(
-            ([section, label]) => (
-              <button
-                key={section}
-                onClick={() =>
-                  openSection(section)
-                }
-              >
-                {label}
-              </button>
-            )
-          )}
+          <button
+            onClick={() =>
+              openSection("dashboard")
+            }
+          >
+            🏠 Tableau de bord
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("teachers")
+            }
+          >
+            👨‍🏫 Professeurs
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("students")
+            }
+          >
+            👨‍🎓 Élèves
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("parents")
+            }
+          >
+            👪 Parents
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("schools")
+            }
+          >
+            🏫 Écoles
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("classes")
+            }
+          >
+            📚 Classes
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("subjects")
+            }
+          >
+            📖 Matières
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("documents")
+            }
+          >
+            📄 Documents
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("exercises")
+            }
+          >
+            📝 Exercices
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("questions")
+            }
+          >
+            ❓ Questions
+          </button>
+
+          <button
+            onClick={() =>
+              openSection("notifications")
+            }
+          >
+            🔔 Notifications
+          </button>
         </div>
       </div>
     );
   }
 
   // =========================================================
-  // DASHBOARD
+  // TABLEAU DE BORD
   // =========================================================
 
   function renderDashboard() {
-    const cards = [
-      ["teachers", "👨‍🏫 Professeurs"],
-      ["students", "👨‍🎓 Élèves"],
-      ["parents", "👪 Parents"],
-      ["schools", "🏫 Écoles"],
-      ["classes", "📚 Classes"],
-      ["subjects", "📖 Matières"],
-      ["documents", "📄 Documents"],
-      ["exercises", "📝 Exercices"],
-      ["notifications", "🔔 Notifications"],
-    ];
-
     return (
       <>
-        <div className="grid">
-          {cards.map(
-            ([key, label]) => (
-              <div
-                className="stat"
-                key={key}
-              >
-                <strong>
-                  {stats[key] || 0}
-                </strong>
-
-                <span>
-                  {label}
-                </span>
-              </div>
-            )
-          )}
-        </div>
-
         <div className="notice">
           <h2>
-            🎯 Contrôle administrateur
+            📊 Tableau de bord
           </h2>
 
           <p>
-            L'administrateur peut gérer
-            les écoles, classes, matières,
-            professeurs et élèves.
+            Bienvenue dans
+            l'administration d'École
+            Connectée.
           </p>
+        </div>
 
-          <p>
-            Il peut également attribuer
-            les classes et matières aux
-            professeurs.
-          </p>
+        <div className="grid">
+          <div className="stat">
+            <strong>
+              {stats.teachers}
+            </strong>
+            <span>
+              👨‍🏫 Professeurs
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.students}
+            </strong>
+            <span>
+              👨‍🎓 Élèves
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.parents}
+            </strong>
+            <span>
+              👪 Parents
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.schools}
+            </strong>
+            <span>
+              🏫 Écoles
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.classes}
+            </strong>
+            <span>
+              📚 Classes
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.subjects}
+            </strong>
+            <span>
+              📖 Matières
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.documents}
+            </strong>
+            <span>
+              📄 Documents
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.exercises}
+            </strong>
+            <span>
+              📝 Exercices
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.questions}
+            </strong>
+            <span>
+              ❓ Questions
+            </span>
+          </div>
+
+          <div className="stat">
+            <strong>
+              {stats.notifications}
+            </strong>
+            <span>
+              🔔 Notifications
+            </span>
+          </div>
         </div>
       </>
     );
   }
 
   // =========================================================
-  // PROFESSEURS
+  // PROFESSEURS - AFFICHAGE
   // =========================================================
 
   function renderTeachers() {
@@ -1906,7 +1717,6 @@ export default function AdminDashboard({ session, onLogout }) {
                   full_name: "",
                   email: "",
                   phone: "",
-                  password: "",
                   school_id: "",
                 });
 
@@ -1923,11 +1733,7 @@ export default function AdminDashboard({ session, onLogout }) {
         {showTeacherForm && (
           <form
             className="notice"
-            onSubmit={
-              editingTeacher
-                ? updateTeacher
-                : createTeacher
-            }
+            onSubmit={saveTeacher}
           >
             <h3>
               {editingTeacher
@@ -1958,7 +1764,7 @@ export default function AdminDashboard({ session, onLogout }) {
             {!editingTeacher && (
               <>
                 <label>
-                  E-mail
+                  Adresse e-mail
                 </label>
 
                 <input
@@ -1971,26 +1777,6 @@ export default function AdminDashboard({ session, onLogout }) {
                     setTeacherForm({
                       ...teacherForm,
                       email:
-                        e.target.value,
-                    })
-                  }
-                  required
-                />
-
-                <label>
-                  Mot de passe
-                </label>
-
-                <input
-                  type="password"
-                  placeholder="Minimum 6 caractères"
-                  value={
-                    teacherForm.password
-                  }
-                  onChange={(e) =>
-                    setTeacherForm({
-                      ...teacherForm,
-                      password:
                         e.target.value,
                     })
                   }
@@ -2033,7 +1819,6 @@ export default function AdminDashboard({ session, onLogout }) {
                     e.target.value,
                 })
               }
-              required
             >
               <option value="">
                 Choisir une école
@@ -2076,103 +1861,84 @@ export default function AdminDashboard({ session, onLogout }) {
         ) : (
           <div className="grid">
             {teachers.map(
-              (teacher) => {
-                const teacherClassNames =
-                  getTeacherClassNames(
-                    teacher.id
-                  );
+              (teacher) => (
+                <div
+                  className="stat"
+                  key={teacher.id}
+                >
+                  <strong>
+                    👨‍🏫{" "}
+                    {teacher.full_name ||
+                      "Professeur sans nom"}
+                  </strong>
 
-                const teacherSubjectNames =
-                  getTeacherSubjectNames(
-                    teacher.id
-                  );
+                  <span>
+                    🏫{" "}
+                    {getSchoolName(
+                      teacher.school_id
+                    )}
+                  </span>
 
-                return (
-                  <div
-                    className="stat"
-                    key={teacher.id}
+                  <span>
+                    📞{" "}
+                    {teacher.phone ||
+                      "Téléphone non renseigné"}
+                  </span>
+
+                  <span>
+                    📚 Classes :{" "}
+                    {getTeacherClassNames(
+                      teacher.id
+                    ).length
+                      ? getTeacherClassNames(
+                          teacher.id
+                        ).join(", ")
+                      : "Aucune classe"}
+                  </span>
+
+                  <span>
+                    Statut :{" "}
+                    {teacher.active ===
+                    false
+                      ? "🔴 Inactif"
+                      : "🟢 Actif"}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      startEditTeacher(
+                        teacher
+                      )
+                    }
                   >
-                    <strong>
-                      👨‍🏫{" "}
-                      {teacher.full_name ||
-                        "Professeur sans nom"}
-                    </strong>
+                    ✏️ Modifier
+                  </button>
 
-                    <span>
-                      🏫{" "}
-                      {getSchoolName(
-                        teacher.school_id
-                      )}
-                    </span>
+                  <button
+                    onClick={() =>
+                      openTeacherAssignment(
+                        teacher
+                      )
+                    }
+                  >
+                    📚 Gérer classes &
+                    matières
+                  </button>
 
-                    <span>
-                      📞{" "}
-                      {teacher.phone ||
-                        "Téléphone non renseigné"}
-                    </span>
-
-                    <span>
-                      📚 Classes :{" "}
-                      {teacherClassNames.length
-                        ? teacherClassNames.join(
-                            ", "
-                          )
-                        : "Aucune classe"}
-                    </span>
-
-                    <span>
-                      📖 Matières :{" "}
-                      {teacherSubjectNames.length
-                        ? teacherSubjectNames.join(
-                            ", "
-                          )
-                        : "Aucune matière"}
-                    </span>
-
-                    <span>
-                      Statut :{" "}
-                      {teacher.active ===
-                      false
-                        ? "🔴 Inactif"
-                        : "🟢 Actif"}
-                    </span>
-
-                    <button
-                      onClick={() =>
-                        startEditTeacher(
-                          teacher
-                        )
-                      }
-                    >
-                      ✏️ Modifier
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        openTeacherAssignment(
-                          teacher
-                        )
-                      }
-                    >
-                      📚 Gérer classes &
-                      matières
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        toggleTeacher(
-                          teacher
-                        )
-                      }
-                    >
-                      {teacher.active ===
-                      false
-                        ? "✅ Réactiver"
-                        : "🚫 Désactiver"}
-                    </button>
-                  </div>
-                );
-              }
+                  <button
+                    onClick={() =>
+                      toggleTeacher(
+                        teacher
+                      )
+                    }
+                  >
+                    {teacher.active ===
+                    false
+                      ? "✅ Réactiver"
+                      : "🚫 Désactiver"}
+                  </button>
+                </div>
+              )
             )}
           </div>
         )}
@@ -2190,8 +1956,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <p>
               Sélectionnez les classes
-              et les matières que ce
-              professeur pourra utiliser.
+              que ce professeur peut
+              utiliser.
             </p>
 
             <hr />
@@ -2358,11 +2124,13 @@ export default function AdminDashboard({ session, onLogout }) {
                   first_name: "",
                   last_name: "",
                   student_code: "",
+                  login_identifier: "",
+                  password: "",
+                  password_confirmation: "",
                   photo_url: "",
                   active: true,
                   parent_id: "",
-                  relationship:
-                    "Parent",
+                  relationship: "Parent",
                 });
 
                 setShowStudentForm(true);
@@ -2502,86 +2270,101 @@ export default function AdminDashboard({ session, onLogout }) {
             <input
               type="text"
               placeholder="EC-2026-001"
-              value={studentForm.student_code}
+              value={
+                studentForm.student_code
+              }
               onChange={(e) =>
                 setStudentForm({
                   ...studentForm,
-                  student_code: e.target.value,
+                  student_code:
+                    e.target.value,
                 })
-              } 
+              }
             />
 
-           <label>
-             Identifiant de connexion
-           </label>
+            {!editingStudent && (
+              <>
+                <label>
+                  Identifiant de connexion
+                </label>
 
-           <input
-             type="text"
-             placeholder="Ex : amadou.diop"
-             value={studentForm.login_identifier}
-             onChange={(e) =>
-               setStudentForm({
-                 ...studentForm,
-                 login_identifier: e.target.value,
-               })
-             }
-             disabled={!!editingStudent}
-             required={!editingStudent}
-           />
+                <input
+                  type="text"
+                  placeholder="Ex : amadou.diop"
+                  value={
+                    studentForm.login_identifier
+                  }
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      login_identifier:
+                        e.target.value,
+                    })
+                  }
+                  required
+                />
 
-           {!editingStudent && (
-             <>
-              <label>
-                Mot de passe
-              </label>
+                <label>
+                  Mot de passe
+                </label>
 
-              <input
-                type="password"
-                placeholder="Minimum 6 caractères"
-                value={studentForm.password}
-                onChange={(e) =>
-                  setStudentForm({
-                   ...studentForm,
-                   password: e.target.value,
-                 })
-               }
-               required
-             />
+                <input
+                  type="password"
+                  placeholder="Minimum 6 caractères"
+                  value={
+                    studentForm.password
+                  }
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      password:
+                        e.target.value,
+                    })
+                  }
+                  required
+                />
 
-             <label>
-               Confirmation du mot de passe
-             </label>
+                <label>
+                  Confirmation du mot de passe
+                </label>
 
-             <input
-               type="password"
-               placeholder="Retapez le mot de passe"
-               value={studentForm.password_confirmation}
-               onChange={(e) =>
-                 setStudentForm({
-                   ...studentForm,
-                   password_confirmation: e.target.value,
-                 })
-               }
-               required
-             />
-           </>
-         )}
+                <input
+                  type="password"
+                  placeholder="Retapez le mot de passe"
+                  value={
+                    studentForm.password_confirmation
+                  }
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      password_confirmation:
+                        e.target.value,
+                    })
+                  }
+                  required
+                />
+              </>
+            )}
 
-         <label>
-            URL de la photo
-          </label>
-          
-          <input
-            type="text"
-            placeholder="https://..."
-            value={studentForm.photo_url}
-            onChange={(e) =>
-              setStudentForm({
-                ...studentForm,
-                photo_url: e.target.value,
-              })
-            }
-          />
+            {/* CORRECTION IMPORTANTE */}
+            <label>
+              URL de la photo
+            </label>
+
+            <input
+              type="text"
+              placeholder="https://..."
+              value={
+                studentForm.photo_url
+              }
+              onChange={(e) =>
+                setStudentForm({
+                  ...studentForm,
+                  photo_url:
+                    e.target.value,
+                })
+              }
+            />
 
             <label>
               Parent
@@ -2635,15 +2418,19 @@ export default function AdminDashboard({ session, onLogout }) {
               <option value="Parent">
                 Parent
               </option>
+
               <option value="Père">
                 Père
               </option>
+
               <option value="Mère">
                 Mère
               </option>
+
               <option value="Tuteur">
                 Tuteur
               </option>
+
               <option value="Tutrice">
                 Tutrice
               </option>
@@ -2726,12 +2513,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
                   <strong>
                     👨‍🎓{" "}
-                    {
-                      student.first_name
-                    }{" "}
-                    {
-                      student.last_name
-                    }
+                    {student.first_name}{" "}
+                    {student.last_name}
                   </strong>
 
                   <span>
@@ -3013,9 +2796,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="text"
-              value={
-                schoolForm.phone
-              }
+              placeholder="77 000 00 00"
+              value={schoolForm.phone}
               onChange={(e) =>
                 setSchoolForm({
                   ...schoolForm,
@@ -3031,9 +2813,8 @@ export default function AdminDashboard({ session, onLogout }) {
 
             <input
               type="email"
-              value={
-                schoolForm.email
-              }
+              placeholder="ecole@email.com"
+              value={schoolForm.email}
               onChange={(e) =>
                 setSchoolForm({
                   ...schoolForm,
@@ -3511,18 +3292,12 @@ export default function AdminDashboard({ session, onLogout }) {
 
                   {document.description && (
                     <span>
+                      📝{" "}
                       {
                         document.description
                       }
                     </span>
                   )}
-
-                  <span>
-                    📅{" "}
-                    {formatDate(
-                      document.created_at
-                    )}
-                  </span>
 
                   {document.file_url && (
                     <a
@@ -3535,6 +3310,13 @@ export default function AdminDashboard({ session, onLogout }) {
                       📥 Ouvrir le document
                     </a>
                   )}
+
+                  <span>
+                    📅{" "}
+                    {formatDate(
+                      document.created_at
+                    )}
+                  </span>
                 </div>
               )
             )}
@@ -3805,12 +3587,6 @@ export default function AdminDashboard({ session, onLogout }) {
                       "Non renseigné"}
                   </span>
 
-                  <span>
-                    Destinataire :{" "}
-                    {notification.recipient_id ||
-                      "Non renseigné"}
-                  </span>
-
                   {notification.student_id && (
                     <span>
                       Élève :{" "}
@@ -3902,12 +3678,13 @@ export default function AdminDashboard({ session, onLogout }) {
   }
 
   // =========================================================
-  // AFFICHAGE
+  // AFFICHAGE PRINCIPAL
   // =========================================================
 
   return (
     <main className="page">
       <section className="card dashboard">
+
         <div className="top">
           <div>
             <p className="eyebrow">
@@ -3957,6 +3734,7 @@ export default function AdminDashboard({ session, onLogout }) {
         )}
 
         {renderActiveSection()}
+
       </section>
     </main>
   );
